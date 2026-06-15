@@ -54,3 +54,7 @@ EWARM/
 MDK-ARM/
 gcc/
 .extSettings/
+
+
+.extSettings/
+STM32CubeIDE/
