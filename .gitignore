@@ -37,3 +37,20 @@ MDK-ARM/*vguix.*
 
 # CMake
 build/*
+
+
+# Dodatki dla Visual Studio i porządkowania repozytorium
+.vs/
+out/
+VisualGDB/
+*.sdf
+*.suo
+*.user
+
+
+
+# Całkowite zablokowanie zbędnych folderów innych środowisk
+EWARM/
+MDK-ARM/
+gcc/
+.extSettings/
