@@ -53,8 +53,6 @@ VisualGDB/
 EWARM/
 MDK-ARM/
 gcc/
-.extSettings/
+.extSettings
 
-
-.extSettings/
 STM32CubeIDE/
