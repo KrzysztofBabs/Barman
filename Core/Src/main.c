@@ -243,17 +243,14 @@ int main(void)
   /* USER CODE BEGIN 2 */
 __HAL_RCC_GPIOI_CLK_ENABLE();
 
-GPIO_InitStruct.Pin = GPIO_PIN_0; // Pin D5 = PI0 (zlacze Arduino, ta rewizja plytki)
+GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 ; // Pin D5 = PI0 (zlacze Arduino, ta rewizja plytki)
 GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
 GPIO_InitStruct.Pull = GPIO_PULLUP;
 HAL_GPIO_Init(GPIOI, &GPIO_InitStruct);
 
 // Zawor zamkniety na starcie. Otwiera sie dopiero po nacisnieciu "Nalej".
-HAL_GPIO_WritePin(GPIOI, GPIO_PIN_0, GPIO_PIN_SET);
+HAL_GPIO_WritePin(GPIOI, GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3, GPIO_PIN_SET);
 // HAL_GPIO_WritePin(GPIOI, GPIO_PIN_0, GPIO_PIN_RESET); // <- TEST: zawor otwarty od razu po starcie
-/* USER CODE END 2 */
-
-
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -696,8 +693,8 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOJ_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOK_CLK_ENABLE();
-  __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOI_CLK_ENABLE();
+  __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
 
@@ -705,10 +702,11 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(VSYNC_FREQ_GPIO_Port, VSYNC_FREQ_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LCD_BL_CTRL_GPIO_Port, LCD_BL_CTRL_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOI, GPIO_PIN_3|GPIO_PIN_2|GPIO_PIN_1|LCD_DISP_Pin
+                          |GPIO_PIN_0, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LCD_DISP_GPIO_Port, LCD_DISP_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(LCD_BL_CTRL_GPIO_Port, LCD_BL_CTRL_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, FRAME_RATE_Pin|RENDER_TIME_Pin, GPIO_PIN_RESET);
@@ -723,19 +721,21 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   HAL_GPIO_Init(VSYNC_FREQ_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : PI3 PI2 PI1 LCD_DISP_Pin
+                           PI0 */
+  GPIO_InitStruct.Pin = GPIO_PIN_3|GPIO_PIN_2|GPIO_PIN_1|LCD_DISP_Pin
+                          |GPIO_PIN_0;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOI, &GPIO_InitStruct);
+
   /*Configure GPIO pin : LCD_BL_CTRL_Pin */
   GPIO_InitStruct.Pin = LCD_BL_CTRL_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LCD_BL_CTRL_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : LCD_DISP_Pin */
-  GPIO_InitStruct.Pin = LCD_DISP_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LCD_DISP_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : FRAME_RATE_Pin RENDER_TIME_Pin */
   GPIO_InitStruct.Pin = FRAME_RATE_Pin|RENDER_TIME_Pin;
@@ -758,14 +758,48 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 /* USER CODE BEGIN 4 */
-void SetValveState(uint8_t state) {
-    if(state == 1) {
-        HAL_GPIO_WritePin(GPIOI, GPIO_PIN_0, GPIO_PIN_RESET); // Otwórz zawór (LOW)
-    } else {
-        HAL_GPIO_WritePin(GPIOI, GPIO_PIN_0, GPIO_PIN_SET);   // Zamknij zawór (HIGH)
-    }
+// void SetValveState(uint8_t state) {
+//     if(state == 1) {
+//         HAL_GPIO_WritePin(GPIOI, GPIO_PIN_0, GPIO_PIN_RESET); // Otwórz zawór (LOW)
+//     } else {
+//         HAL_GPIO_WritePin(GPIOI, GPIO_PIN_0, GPIO_PIN_SET);   // Zamknij zawór (HIGH)
+//     }
+// }
+
+void SetValveState(uint8_t valve_id, uint8_t state){
+  GPIO_TypeDef* port = GPIOI;
+  uint16_t pin = GPIO_PIN_0;
+
+  if(valve_id==1){
+    port=GPIOI;
+    pin=GPIO_PIN_0;
+
+  }
+
+  else if(valve_id==2){
+    port=GPIOI;
+    pin=GPIO_PIN_1;
+  }
+
+  else if(valve_id==3){
+    port=GPIOI;
+    pin=GPIO_PIN_2;
+  }
+
+  else if(valve_id==4){
+    port=GPIOI;
+    pin=GPIO_PIN_3;
+  }
+
+  if(state==1){
+    HAL_GPIO_WritePin(port,pin,GPIO_PIN_RESET);
+  }
+  else{
+    HAL_GPIO_WritePin(port,pin,GPIO_PIN_SET);
+
+  }
 }
-/* USER CODE END 4 */
+
 
 // Read manufacturer ID of external QSPI flash
 void GetManufacturerId (uint8_t *manufacturer_id)
@@ -827,6 +861,8 @@ void EnableMemoryMappedMode(uint8_t manufacturer_id)
     Error_Handler();
   }
 }
+
+/* USER CODE END 4 */
 
 /* USER CODE END 4 */
 

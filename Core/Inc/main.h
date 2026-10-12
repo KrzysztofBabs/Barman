@@ -54,6 +54,7 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
+void SetValveState(uint8_t valve_id, uint8_t state);
 
 /* USER CODE END EFP */
 
