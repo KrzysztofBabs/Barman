@@ -61,6 +61,7 @@ extern LTDC_HandleTypeDef hltdc;
 extern TIM_HandleTypeDef htim6;
 
 /* USER CODE BEGIN EV */
+extern UART_HandleTypeDef huart6;
 
 /* USER CODE END EV */
 
@@ -203,5 +204,10 @@ void DMA2D_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
+
+void USART6_IRQHandler(void)
+{
+    HAL_UART_IRQHandler(&huart6);
+}
 
 /* USER CODE END 1 */

@@ -106,6 +106,12 @@ const osThreadAttr_t videoTask_attributes = {
 };
 /* USER CODE BEGIN PV */
 static FMC_SDRAM_CommandTypeDef Command;
+
+UART_HandleTypeDef huart6;
+uint8_t ble_rx_data = 0;
+// Komenda z BLE czekajaca na wykonanie przez ekran (0 = brak).
+static volatile uint8_t ble_command = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -125,6 +131,7 @@ extern void videoTaskFunc(void *argument);
 /* USER CODE BEGIN PFP */
 void GetManufacturerId (uint8_t *manufacturer_id);
 void EnableMemoryMappedMode(uint8_t manufacturer_id);  
+static void MX_USART6_UART_Init(void);
 
 /* USER CODE END PFP */
 
@@ -251,6 +258,27 @@ HAL_GPIO_Init(GPIOI, &GPIO_InitStruct);
 // Zawor zamkniety na starcie. Otwiera sie dopiero po nacisnieciu "Nalej".
 HAL_GPIO_WritePin(GPIOI, GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3, GPIO_PIN_SET);
 // HAL_GPIO_WritePin(GPIOI, GPIO_PIN_0, GPIO_PIN_RESET); // <- TEST: zawor otwarty od razu po starcie
+
+  // BLE na USART6. Musi byc po MX_GPIO_Init, bo ten ustawia PC6/PC7 jako
+  // piny diagnostyczne TouchGFX (RENDER_TIME/FRAME_RATE).
+  MX_USART6_UART_Init();
+  
+
+// --- Zmiana nazwy HM-10 ---
+HAL_Delay(500);                                   // HM-10 musi sie uruchomic
+const char name_cmd[]  = "AT+NAMEMaszyna";   // po AT+NAME Twoja nazwa (max 12 znakow)
+const char reset_cmd[] = "AT+RESET";              // restart modulu, zeby nazwa zadzialala
+HAL_UART_Transmit(&huart6, (uint8_t*)name_cmd, sizeof(name_cmd) - 1, 100);
+HAL_Delay(300);
+HAL_UART_Transmit(&huart6, (uint8_t*)reset_cmd, sizeof(reset_cmd) - 1, 100);
+HAL_Delay(1000);
+// Wyrzucenie odpowiedzi modulu ("OK+Set:..."), zeby nie wziac jej za komende.
+__HAL_UART_CLEAR_FLAG(&huart6, UART_CLEAR_OREF);
+__HAL_UART_FLUSH_DRREGISTER(&huart6);
+// --- koniec ---
+
+HAL_UART_Receive_IT(&huart6, &ble_rx_data, 1);
+
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -756,8 +784,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-/* USER CODE BEGIN 4 */
 // void SetValveState(uint8_t state) {
 //     if(state == 1) {
 //         HAL_GPIO_WritePin(GPIOI, GPIO_PIN_0, GPIO_PIN_RESET); // Otwórz zawór (LOW)
@@ -765,6 +791,8 @@ static void MX_GPIO_Init(void)
 //         HAL_GPIO_WritePin(GPIOI, GPIO_PIN_0, GPIO_PIN_SET);   // Zamknij zawór (HIGH)
 //     }
 // }
+
+
 
 void SetValveState(uint8_t valve_id, uint8_t state){
   GPIO_TypeDef* port = GPIOI;
@@ -862,7 +890,102 @@ void EnableMemoryMappedMode(uint8_t manufacturer_id)
   }
 }
 
-/* USER CODE END 4 */
+// USART6 na zlaczu Arduino: PC6 = D1 (TX), PC7 = D0 (RX). 9600 8N1.
+static void MX_USART6_UART_Init(void)
+{
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_USART6_CLK_ENABLE();
+
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin = GPIO_PIN_6 | GPIO_PIN_7;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF8_USART6;
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+    huart6.Instance = USART6;
+    huart6.Init.BaudRate = 9600; // domyslna predkosc HM-10 / JDY / HC-05
+    huart6.Init.WordLength = UART_WORDLENGTH_8B;
+    huart6.Init.StopBits = UART_STOPBITS_1;
+    huart6.Init.Parity = UART_PARITY_NONE;
+    huart6.Init.Mode = UART_MODE_TX_RX;
+    huart6.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+    huart6.Init.OverSampling = UART_OVERSAMPLING_16;
+    huart6.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+    huart6.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+    if (HAL_UART_Init(&huart6) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    // Priorytet >= configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY (5) wymagany przez FreeRTOS.
+    HAL_NVIC_SetPriority(USART6_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ(USART6_IRQn);
+}
+
+// Komendy z aplikacji (jeden znak):
+//   '1'..'4'      - nalej z butelki 1..4 (jak przyciski na ekranie)
+//   'A','B','C'   - przepis 1..3 (jak wybor z listy + "NALEJ")
+//   '0','S'       - STOP, zamyka wszystkie zawory
+// Przerwanie tylko zapamietuje komende - wykonuje ja Screen2View, z tymi samymi
+// timerami co przy obsludze z ekranu.
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART6)
+    {
+        switch (ble_rx_data)
+        {
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case 'A':
+            case 'B':
+            case 'C':
+                ble_command = ble_rx_data;
+                break;
+            case 'a':
+            case 'b':
+            case 'c':
+                ble_command = ble_rx_data - 'a' + 'A';
+                break;
+            case '0':
+            case 's':
+            case 'S':
+                // STOP zamyka zawory od razu, nawet gdy otwarty jest inny ekran.
+                SetValveState(1, 0);
+                SetValveState(2, 0);
+                SetValveState(3, 0);
+                SetValveState(4, 0);
+                ble_command = 'S';
+                break;
+            default:
+                break;
+        }
+
+        HAL_UART_Receive_IT(&huart6, &ble_rx_data, 1);
+    }
+}
+
+// Np. przepelnienie (overrun) przerywa odbior - bez ponownego uzbrojenia BLE by "zamilkl".
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART6)
+    {
+        HAL_UART_Receive_IT(&huart6, &ble_rx_data, 1);
+    }
+}
+
+uint8_t BLE_GetCommand(void)
+{
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    uint8_t cmd = ble_command;
+    ble_command = 0;
+    __set_PRIMASK(primask);
+    return cmd;
+}
 
 /* USER CODE END 4 */
 

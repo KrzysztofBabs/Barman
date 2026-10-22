@@ -39,6 +39,9 @@ Screen2View::Screen2View():currentState(IDLE), tickCounter(0), activeBottle(0), 
 void Screen2View::setupScreen()
 {
     Screen2ViewBase::setupScreen();
+    // Komenda wyslana z telefonu, gdy ten ekran nie byl otwarty, nie moze
+    // nagle odpalic nalewania po wejsciu na ekran.
+    BLE_GetCommand();
 }
 
 void Screen2View::tearDownScreen()
@@ -141,8 +144,40 @@ void Screen2View::startPouring(uint8_t bottleNum){
 }
 
 
+// Komendy z aplikacji BLE - te same akcje co przyciski na ekranie.
+void Screen2View::handleBleCommand(uint8_t cmd)
+{
+    if (cmd >= '1' && cmd <= '4')
+    {
+        startPouring(cmd - '0');
+    }
+    else if (cmd >= 'A' && cmd <= 'C')
+    {
+        startRecipe(cmd - 'A');
+    }
+    else if (cmd == 'S')
+    {
+        stopAll();
+    }
+}
+
+void Screen2View::stopAll()
+{
+    for (uint8_t valve = 1; valve <= 4; valve++)
+    {
+        SetValveState(valve, 0);
+    }
+    currentState = IDLE;
+    activeBottle = 0;
+    tickCounter = 0;
+    currentRecipeIdx = 0;
+    currentStepIdx = 0;
+}
+
 void Screen2View::handleTickEvent(){
     Screen2ViewBase::handleTickEvent();
+
+    handleBleCommand(BLE_GetCommand());
 
     // Callbacki AnimateToItem/ItemSelected scroll wheela nie sa podlaczone w Designerze,
     // wiec odpytujemy aktualnie wybrany element i odswiezamy podswietlenie, gdy sie zmieni.

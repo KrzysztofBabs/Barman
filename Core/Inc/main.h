@@ -56,6 +56,9 @@ void Error_Handler(void);
 /* USER CODE BEGIN EFP */
 void SetValveState(uint8_t valve_id, uint8_t state);
 
+// Zwraca ostatnia komende odebrana z BLE i ja kasuje (0 = brak nowej komendy).
+uint8_t BLE_GetCommand(void);
+
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

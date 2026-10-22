@@ -7,6 +7,7 @@
 
 extern "C"{
     void SetValveState(uint8_t valve_id, uint8_t state);
+    uint8_t BLE_GetCommand(void);
 }
 struct RecipeStep {
     uint8_t bottleId;  
@@ -44,6 +45,8 @@ protected:
     void startPouring(uint8_t bottleNum);
     void startRecipe(uint8_t recipeIndex);
     void openCurrentStepValve();
+    void handleBleCommand(uint8_t cmd);
+    void stopAll();
 
     enum MenuState{
         IDLE,
