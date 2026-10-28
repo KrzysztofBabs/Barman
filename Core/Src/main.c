@@ -25,6 +25,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -61,6 +62,12 @@
 // Kalibracja: przy skali 61.9 telefon 203g pokazywal ~274, wiec
 // skala = 61.9 * 274/203 ≈ 83.5.
 #define HX711_SCALE   83.5f
+
+// --- Zawartosc butelek ustawiana z aplikacji ---
+#define BOTTLE_COUNT      4
+#define BOTTLE_NAME_MAX   16   // bez koncowego '\0'
+#define BLE_LINE_MAX      40   // "SET,n," + nazwa, z zapasem
+#define BLE_TX_MAX        128  // odpowiedz na $GET: 4 x "$B,n,nazwa\n" + "$END\n"
 
 /* USER CODE END PD */
 
@@ -111,6 +118,24 @@ UART_HandleTypeDef huart6;
 uint8_t ble_rx_data = 0;
 // Komenda z BLE czekajaca na wykonanie przez ekran (0 = brak).
 static volatile uint8_t ble_command = 0;
+// 1 = poprzedni bajt byl '#', wiec ten bajt jest komenda.
+static uint8_t ble_prefix_seen = 0;
+
+// Wiadomosc tekstowa "$...\n" zbierana bajt po bajcie (bez '$' i '\n').
+static char ble_line[BLE_LINE_MAX + 1];
+static uint8_t ble_line_len = 0;
+static uint8_t ble_line_active = 0;
+static uint8_t ble_line_overflow = 0;
+
+// Bufor odpowiedzi - musi zyc do konca wysylki przez HAL_UART_Transmit_IT.
+static char ble_tx_buf[BLE_TX_MAX];
+// Tu skladana jest odpowiedz, zanim BLE_Send skopiuje ja do ble_tx_buf.
+static char ble_reply[BLE_TX_MAX];
+
+// Co jest w ktorej butelce (ustawiane z aplikacji komenda $SET).
+static char bottleName[BOTTLE_COUNT][BOTTLE_NAME_MAX + 1] = {
+    "Butelka 1", "Butelka 2", "Butelka 3", "Butelka 4"
+};
 
 /* USER CODE END PV */
 
@@ -258,28 +283,9 @@ HAL_GPIO_Init(GPIOI, &GPIO_InitStruct);
 // Zawor zamkniety na starcie. Otwiera sie dopiero po nacisnieciu "Nalej".
 HAL_GPIO_WritePin(GPIOI, GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3, GPIO_PIN_SET);
 // HAL_GPIO_WritePin(GPIOI, GPIO_PIN_0, GPIO_PIN_RESET); // <- TEST: zawor otwarty od razu po starcie
-
-  // BLE na USART6. Musi byc po MX_GPIO_Init, bo ten ustawia PC6/PC7 jako
-  // piny diagnostyczne TouchGFX (RENDER_TIME/FRAME_RATE).
-  MX_USART6_UART_Init();
-  
-
-// --- Zmiana nazwy HM-10 ---
-HAL_Delay(500);                                   // HM-10 musi sie uruchomic
-const char name_cmd[]  = "AT+NAMEMaszyna";   // po AT+NAME Twoja nazwa (max 12 znakow)
-const char reset_cmd[] = "AT+RESET";              // restart modulu, zeby nazwa zadzialala
-HAL_UART_Transmit(&huart6, (uint8_t*)name_cmd, sizeof(name_cmd) - 1, 100);
-HAL_Delay(300);
-HAL_UART_Transmit(&huart6, (uint8_t*)reset_cmd, sizeof(reset_cmd) - 1, 100);
-HAL_Delay(1000);
-// Wyrzucenie odpowiedzi modulu ("OK+Set:..."), zeby nie wziac jej za komende.
-__HAL_UART_CLEAR_FLAG(&huart6, UART_CLEAR_OREF);
-__HAL_UART_FLUSH_DRREGISTER(&huart6);
-// --- koniec ---
-
-HAL_UART_Receive_IT(&huart6, &ble_rx_data, 1);
-
-  /* USER CODE END 2 */
+MX_USART6_UART_Init();
+  HAL_UART_Receive_IT(&huart6, &ble_rx_data, 1);
+/* USER CODE END 2 */
 
   /* Init scheduler */
   osKernelInitialize();
@@ -924,44 +930,203 @@ static void MX_USART6_UART_Init(void)
     HAL_NVIC_EnableIRQ(USART6_IRQn);
 }
 
-// Komendy z aplikacji (jeden znak):
-//   '1'..'4'      - nalej z butelki 1..4 (jak przyciski na ekranie)
-//   'A','B','C'   - przepis 1..3 (jak wybor z listy + "NALEJ")
-//   '0','S'       - STOP, zamyka wszystkie zawory
+// Wysyla odpowiedz do aplikacji bez blokowania (mozna wolac z przerwania).
+// Gdy poprzednia odpowiedz jeszcze leci, nowa przepada - aplikacja wysyla
+// kolejna komende dopiero po odebraniu odpowiedzi.
+static void BLE_Send(const char *text)
+{
+    if (huart6.gState != HAL_UART_STATE_READY)
+    {
+        return;
+    }
+    size_t len = strlen(text);
+    if (len > sizeof(ble_tx_buf))
+    {
+        len = sizeof(ble_tx_buf);
+    }
+    memcpy(ble_tx_buf, text, len);
+    HAL_UART_Transmit_IT(&huart6, (uint8_t *)ble_tx_buf, (uint16_t)len);
+}
+
+static uint8_t IsValidBottleName(const char *name)
+{
+    size_t len = strlen(name);
+    if (len == 0 || len > BOTTLE_NAME_MAX)
+    {
+        return 0;
+    }
+    for (size_t i = 0; i < len; i++)
+    {
+        char ch = name[i];
+        if (ch < 0x20 || ch > 0x7E || ch == ',' || ch == '$' || ch == '#')
+        {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+// Dopisuje do ble_reply linie "<prefix>n,Nazwa\n" dla butelki idx (0..3).
+static size_t AppendBottleLine(size_t n, const char *prefix, uint8_t idx)
+{
+    size_t len = strlen(prefix);
+    memcpy(&ble_reply[n], prefix, len);   n += len;
+    ble_reply[n++] = (char)('1' + idx);
+    ble_reply[n++] = ',';
+    len = strlen(bottleName[idx]);
+    memcpy(&ble_reply[n], bottleName[idx], len);   n += len;
+    ble_reply[n++] = '\n';
+    ble_reply[n] = '\0';
+    return n;
+}
+
+// Wiadomosci od aplikacji (w ble_line jest tresc bez '$' i '\n'):
+//   "SET,n,Nazwa" -> "$OK,n,Nazwa\n"          - zapisz co jest w butelce n
+//   "GET"         -> "$B,1,..\n" .. "$B,4,..\n" "$END\n" - wszystkie butelki
+//   "GET,n"       -> "$B,n,Nazwa\n"           - jedna butelka
+// Bledy: "$ERR,ID|NAME|CMD|LEN\n".
+static void BLE_HandleLine(void)
+{
+    if (ble_line_overflow)
+    {
+        BLE_Send("$ERR,LEN\n");
+        return;
+    }
+
+    if (strcmp(ble_line, "GET") == 0)
+    {
+        size_t n = 0;
+        for (uint8_t i = 0; i < BOTTLE_COUNT; i++)
+        {
+            n = AppendBottleLine(n, "$B,", i);
+        }
+        memcpy(&ble_reply[n], "$END\n", 6);
+        BLE_Send(ble_reply);
+        return;
+    }
+
+    if (strncmp(ble_line, "GET,", 4) == 0)
+    {
+        char id = ble_line[4];
+        if (id < '1' || id > ('0' + BOTTLE_COUNT) || ble_line[5] != '\0')
+        {
+            BLE_Send("$ERR,ID\n");
+            return;
+        }
+        AppendBottleLine(0, "$B,", (uint8_t)(id - '1'));
+        BLE_Send(ble_reply);
+        return;
+    }
+
+    if (strncmp(ble_line, "SET,", 4) != 0)
+    {
+        BLE_Send("$ERR,CMD\n");
+        return;
+    }
+
+    char id = ble_line[4];
+    char sep = ble_line[5];
+    if (id < '1' || id > ('0' + BOTTLE_COUNT) || (sep != ',' && sep != '\0'))
+    {
+        BLE_Send("$ERR,ID\n");
+        return;
+    }
+
+    const char *name = (sep == ',') ? &ble_line[6] : "";
+    if (!IsValidBottleName(name))
+    {
+        BLE_Send("$ERR,NAME\n");
+        return;
+    }
+
+    uint8_t idx = (uint8_t)(id - '1');
+    strcpy(bottleName[idx], name);
+
+    AppendBottleLine(0, "$OK,", idx);
+    BLE_Send(ble_reply);
+}
+
+// Komendy z aplikacji: '#' + jeden znak, np. "#1", "#C", "#S".
+//   '#1'..'#4'    - nalej z butelki 1..4 (jak przyciski na ekranie)
+//   '#A'..'#C'    - przepis 1..3 (jak wybor z listy + "NALEJ")
+//   '#0', '#S'    - STOP, zamyka wszystkie zawory
+// Wiadomosci tekstowe: '$' ... '\n', np. "$SET,2,Wodka\n" - co jest w butelce 2.
+// Znaki bez '#' lub '$' przed nimi sa ignorowane - HM-10 sam wysyla np. "OK+CONN"
+// przy polaczeniu i "OK+LOST" przy rozlaczeniu, co bez prefiksu odpalalo zawory.
+// '#' przerywa zbieranie wiadomosci '$', zeby STOP dzialal zawsze.
 // Przerwanie tylko zapamietuje komende - wykonuje ja Screen2View, z tymi samymi
 // timerami co przy obsludze z ekranu.
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == USART6)
     {
-        switch (ble_rx_data)
+        uint8_t c = ble_rx_data;
+
+        if (c == '#')
         {
-            case '1':
-            case '2':
-            case '3':
-            case '4':
-            case 'A':
-            case 'B':
-            case 'C':
-                ble_command = ble_rx_data;
-                break;
-            case 'a':
-            case 'b':
-            case 'c':
-                ble_command = ble_rx_data - 'a' + 'A';
-                break;
-            case '0':
-            case 's':
-            case 'S':
-                // STOP zamyka zawory od razu, nawet gdy otwarty jest inny ekran.
-                SetValveState(1, 0);
-                SetValveState(2, 0);
-                SetValveState(3, 0);
-                SetValveState(4, 0);
-                ble_command = 'S';
-                break;
-            default:
-                break;
+            ble_line_active = 0;
+            ble_prefix_seen = 1;
+        }
+        else if (c == '$')
+        {
+            ble_prefix_seen = 0;
+            ble_line_active = 1;
+            ble_line_len = 0;
+            ble_line_overflow = 0;
+        }
+        else if (ble_line_active)
+        {
+            if (c == '\n')
+            {
+                ble_line_active = 0;
+                ble_line[ble_line_len] = '\0';
+                BLE_HandleLine();
+            }
+            else if (c != '\r')
+            {
+                if (ble_line_len < BLE_LINE_MAX)
+                {
+                    ble_line[ble_line_len++] = (char)c;
+                }
+                else
+                {
+                    ble_line_overflow = 1;
+                }
+            }
+        }
+        else if (ble_prefix_seen)
+        {
+            ble_prefix_seen = 0;
+
+            switch (c)
+            {
+                case '1':
+                case '2':
+                case '3':
+                case '4':
+                case 'A':
+                case 'B':
+                case 'C':
+                    ble_command = c;
+                    break;
+                case 'a':
+                case 'b':
+                case 'c':
+                    ble_command = c - 'a' + 'A';
+                    break;
+                case '0':
+                case 's':
+                case 'S':
+                    // STOP zamyka zawory od razu, nawet gdy otwarty jest inny ekran.
+                    SetValveState(1, 0);
+                    SetValveState(2, 0);
+                    SetValveState(3, 0);
+                    SetValveState(4, 0);
+                    ble_command = 'S';
+                    break;
+                default:
+                    break;
+            }
         }
 
         HAL_UART_Receive_IT(&huart6, &ble_rx_data, 1);
@@ -973,8 +1138,19 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == USART6)
     {
+        ble_prefix_seen = 0;
+        ble_line_active = 0;
         HAL_UART_Receive_IT(&huart6, &ble_rx_data, 1);
     }
+}
+
+const char *GetBottleName(uint8_t bottle_id)
+{
+    if (bottle_id < 1 || bottle_id > BOTTLE_COUNT)
+    {
+        return "";
+    }
+    return bottleName[bottle_id - 1];
 }
 
 uint8_t BLE_GetCommand(void)

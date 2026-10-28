@@ -59,6 +59,9 @@ void SetValveState(uint8_t valve_id, uint8_t state);
 // Zwraca ostatnia komende odebrana z BLE i ja kasuje (0 = brak nowej komendy).
 uint8_t BLE_GetCommand(void);
 
+// Nazwa napoju w butelce 1..4 ustawiona z aplikacji ("$SET,n,Nazwa").
+const char *GetBottleName(uint8_t bottle_id);
+
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
