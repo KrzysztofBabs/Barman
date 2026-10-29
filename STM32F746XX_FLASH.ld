@@ -56,7 +56,7 @@ ENTRY(Reset_Handler)
 MEMORY
 {
 RAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 320K
-FLASH (rx)     : ORIGIN = 0x08000000, LENGTH = 1024K
+FLASH (rx)     : ORIGIN = 0x08000000, LENGTH = 768K  /* sektor 7 (0x080C0000) = nazwy butelek */
 QUADSPI (r)    : ORIGIN = 0x90000000, LENGTH = 16M
 SDRAM   (xrw)  : ORIGIN = 0xC0000000, LENGTH = 8M
 }

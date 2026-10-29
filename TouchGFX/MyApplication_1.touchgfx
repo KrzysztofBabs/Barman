@@ -241,30 +241,15 @@
             "Type": "FlexButton",
             "Name": "btnDrink1",
             "Y": 56,
-            "Width": 100,
+            "Width": 200,
             "Height": 31,
             "ButtonTrigger": {
               "Type": "ClickButtonTrigger"
             },
             "ButtonStyles": [
               {
-                "Type": "TextButtonStyle",
-                "TextId": "__SingleUse_9JWN",
-                "TextRotation": "0",
-                "ColorReleased": {
-                  "Red": 10,
-                  "Green": 10,
-                  "Blue": 10
-                },
-                "ColorPressed": {
-                  "Red": 10,
-                  "Green": 10,
-                  "Blue": 10
-                }
-              },
-              {
                 "Type": "BoxWithBorderButtonStyle",
-                "Width": 100,
+                "Width": 200,
                 "Height": 31,
                 "LockToFlexButtonSize": true,
                 "BorderSize": 5,
@@ -292,30 +277,15 @@
             "Type": "FlexButton",
             "Name": "btnDrink2",
             "Y": 108,
-            "Width": 100,
+            "Width": 200,
             "Height": 28,
             "ButtonTrigger": {
               "Type": "ClickButtonTrigger"
             },
             "ButtonStyles": [
               {
-                "Type": "TextButtonStyle",
-                "TextId": "__SingleUse_S8VV",
-                "TextRotation": "0",
-                "ColorReleased": {
-                  "Red": 10,
-                  "Green": 10,
-                  "Blue": 10
-                },
-                "ColorPressed": {
-                  "Red": 10,
-                  "Green": 10,
-                  "Blue": 10
-                }
-              },
-              {
                 "Type": "BoxWithBorderButtonStyle",
-                "Width": 100,
+                "Width": 200,
                 "Height": 28,
                 "LockToFlexButtonSize": true,
                 "BorderSize": 5,
@@ -343,30 +313,15 @@
             "Type": "FlexButton",
             "Name": "btnDrink3",
             "Y": 156,
-            "Width": 100,
+            "Width": 200,
             "Height": 29,
             "ButtonTrigger": {
               "Type": "ClickButtonTrigger"
             },
             "ButtonStyles": [
               {
-                "Type": "TextButtonStyle",
-                "TextId": "__SingleUse_QYF5",
-                "TextRotation": "0",
-                "ColorReleased": {
-                  "Red": 10,
-                  "Green": 10,
-                  "Blue": 10
-                },
-                "ColorPressed": {
-                  "Red": 10,
-                  "Green": 10,
-                  "Blue": 10
-                }
-              },
-              {
                 "Type": "BoxWithBorderButtonStyle",
-                "Width": 100,
+                "Width": 200,
                 "Height": 29,
                 "LockToFlexButtonSize": true,
                 "BorderSize": 5,
@@ -394,30 +349,15 @@
             "Type": "FlexButton",
             "Name": "btnDrink4",
             "Y": 209,
-            "Width": 100,
+            "Width": 200,
             "Height": 30,
             "ButtonTrigger": {
               "Type": "ClickButtonTrigger"
             },
             "ButtonStyles": [
               {
-                "Type": "TextButtonStyle",
-                "TextId": "__SingleUse_VFRS",
-                "TextRotation": "0",
-                "ColorReleased": {
-                  "Red": 10,
-                  "Green": 10,
-                  "Blue": 10
-                },
-                "ColorPressed": {
-                  "Red": 10,
-                  "Green": 10,
-                  "Blue": 10
-                }
-              },
-              {
                 "Type": "BoxWithBorderButtonStyle",
-                "Width": 100,
+                "Width": 200,
                 "Height": 30,
                 "LockToFlexButtonSize": true,
                 "BorderSize": 5,
@@ -478,6 +418,63 @@
             },
             "TextRotation": "0",
             "Preset": "alternate_theme\\presets\\button\\regular\\height_50\\medium_rounded_normal.json"
+          },
+          {
+            "Type": "TextArea",
+            "Name": "BottleName1",
+            "Y": 56,
+            "Width": 200,
+            "Height": 31,
+            "TextId": "__SingleUse_KOIB",
+            "TextRotation": "0",
+            "Color": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "Wildcard1": {
+              "UseBuffer": true,
+              "BufferSize": 17
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "BottleName2",
+            "Y": 108,
+            "Width": 200,
+            "Height": 28,
+            "TextId": "__SingleUse_2ZJ9",
+            "TextRotation": "0",
+            "Wildcard1": {
+              "UseBuffer": true,
+              "BufferSize": 17
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "BottleName3",
+            "Y": 156,
+            "Width": 200,
+            "Height": 29,
+            "TextId": "__SingleUse_63B1",
+            "TextRotation": "0",
+            "Wildcard1": {
+              "UseBuffer": true,
+              "BufferSize": 17
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "BottleName4",
+            "Y": 209,
+            "Width": 200,
+            "Height": 30,
+            "TextId": "__SingleUse_LXA2",
+            "TextRotation": "0",
+            "Wildcard1": {
+              "UseBuffer": true,
+              "BufferSize": 17
+            }
           }
         ],
         "Interactions": [

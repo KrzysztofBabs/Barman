@@ -42,6 +42,7 @@ void Screen2View::setupScreen()
     // Komenda wyslana z telefonu, gdy ten ekran nie byl otwarty, nie moze
     // nagle odpalic nalewania po wejsciu na ekran.
     BLE_GetCommand();
+    updateBottleNames();
 }
 
 void Screen2View::tearDownScreen()
@@ -174,10 +175,38 @@ void Screen2View::stopAll()
     currentStepIdx = 0;
 }
 
+void Screen2View::updateBottleNames()
+{
+    // Wersje zapamietujemy przed kopiowaniem - gdy nazwa zmieni sie w trakcie,
+    // w nastepnym ticku odswiezymy jeszcze raz.
+    lastBottleNamesVersion = GetBottleNamesVersion();
+
+    Unicode::strncpy(BottleName1Buffer, GetBottleName(1), BOTTLENAME1_SIZE);
+    BottleName1Buffer[BOTTLENAME1_SIZE - 1] = 0;
+    BottleName1.invalidate();
+
+    Unicode::strncpy(BottleName2Buffer, GetBottleName(2), BOTTLENAME2_SIZE);
+    BottleName2Buffer[BOTTLENAME2_SIZE - 1] = 0;
+    BottleName2.invalidate();
+
+    Unicode::strncpy(BottleName3Buffer, GetBottleName(3), BOTTLENAME3_SIZE);
+    BottleName3Buffer[BOTTLENAME3_SIZE - 1] = 0;
+    BottleName3.invalidate();
+
+    Unicode::strncpy(BottleName4Buffer, GetBottleName(4), BOTTLENAME4_SIZE);
+    BottleName4Buffer[BOTTLENAME4_SIZE - 1] = 0;
+    BottleName4.invalidate();
+}
+
 void Screen2View::handleTickEvent(){
     Screen2ViewBase::handleTickEvent();
 
     handleBleCommand(BLE_GetCommand());
+
+    if (GetBottleNamesVersion() != lastBottleNamesVersion)
+    {
+        updateBottleNames();
+    }
 
     // Callbacki AnimateToItem/ItemSelected scroll wheela nie sa podlaczone w Designerze,
     // wiec odpytujemy aktualnie wybrany element i odswiezamy podswietlenie, gdy sie zmieni.

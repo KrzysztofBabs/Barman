@@ -13,23 +13,23 @@
       </Text>
     </TextGroup>
     <TextGroup Id="Unsorted">
+      <Text Id="__SingleUse_LXA2" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_63B1" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_2ZJ9" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_KOIB" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+      </Text>
       <Text Id="__SingleUse_MWZW" Alignment="Center" TypographyId="Default">
         <Translation Language="GB">nalej</Translation>
       </Text>
       <Text Id="__SingleUse_U1ID" Alignment="Center" TypographyId="Default">
         <Translation Language="GB">&lt;value&gt;</Translation>
-      </Text>
-      <Text Id="__SingleUse_VFRS" Alignment="Center" TypographyId="Default">
-        <Translation Language="GB">butelka4</Translation>
-      </Text>
-      <Text Id="__SingleUse_QYF5" Alignment="Center" TypographyId="Default">
-        <Translation Language="GB">butelka3</Translation>
-      </Text>
-      <Text Id="__SingleUse_S8VV" Alignment="Center" TypographyId="Default">
-        <Translation Language="GB">butelka2</Translation>
-      </Text>
-      <Text Id="__SingleUse_9JWN" Alignment="Center" TypographyId="Default">
-        <Translation Language="GB">butelka1</Translation>
       </Text>
       <Text Id="__SingleUse_5RL2" Alignment="Center" TypographyId="Default">
         <Translation Language="GB">back</Translation>
@@ -49,7 +49,7 @@
     </TextGroup>
   </Texts>
   <Typographies>
-    <Typography Id="Default" Font="verdana.ttf" Size="20" Bpp="4" IsVector="no" Direction="LTR" FallbackCharacter="?" WildcardCharacters="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.:-_ ąćęłńóśźżĄĆĘŁŃÓŚŹŻ " WildcardCharacterRanges="0-9" />
+    <Typography Id="Default" Font="verdana.ttf" Size="20" Bpp="4" IsVector="no" Direction="LTR" FallbackCharacter="?" WildcardCharacters="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.:-_ ąćęłńóśźżĄĆĘŁŃÓŚŹŻ " WildcardCharacterRanges="0x20-0x7E" />
     <Typography Id="Large" Font="verdana.ttf" Size="40" Bpp="4" IsVector="no" Direction="LTR" FallbackCharacter="?" />
     <Typography Id="Small" Font="verdana.ttf" Size="10" Bpp="4" IsVector="no" Direction="LTR" FallbackCharacter="?" />
   </Typographies>

@@ -69,6 +69,14 @@
 #define BLE_LINE_MAX      40   // "SET,n," + nazwa, z zapasem
 #define BLE_TX_MAX        128  // odpowiedz na $GET: 4 x "$B,n,nazwa\n" + "$END\n"
 
+// --- Zapis nazw butelek w wewnetrznym flashu ---
+// Ostatni sektor (7, 256 KB). Linker ma FLASH = 768K, zeby program tu nie wszedl.
+#define NAMES_FLASH_ADDR    0x080C0000u
+#define NAMES_FLASH_SIZE    0x40000u
+#define NAMES_FLASH_SECTOR  FLASH_SECTOR_7
+#define NAMES_MAGIC         0x424F544Cu  // "BOTL"
+#define NAMES_SAVE_DELAY_MS 2000u        // zapis 2 s po ostatniej zmianie
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -134,8 +142,33 @@ static char ble_reply[BLE_TX_MAX];
 
 // Co jest w ktorej butelce (ustawiane z aplikacji komenda $SET).
 static char bottleName[BOTTLE_COUNT][BOTTLE_NAME_MAX + 1] = {
-    "Butelka 1", "Butelka 2", "Butelka 3", "Butelka 4"
+
+  "null", "null", "null", "null"
+    // "Butelka 1", "Butelka 2", "Butelka 3", "Butelka 4"
 };
+// Zwiekszany przy kazdej zmianie nazwy - ekran po nim poznaje, ze trzeba odswiezyc.
+static volatile uint8_t bottleNamesVersion = 0;
+
+// Nazwy czekajace na zapis do flasha i czas ostatniej zmiany.
+static volatile uint8_t bottleNamesDirty = 0;
+static volatile uint32_t bottleNamesChangedTick = 0;
+
+// Sektor jest zapisywany kolejnymi rekordami jak dziennik - kasowanie tylko
+// gdy sie zapelni (ok. 3600 zapisow). Waznym rekordem jest ostatni z magic.
+// magic jest na koncu i programowany jako ostatni, wiec rekord przerwany
+// odlaczeniem zasilania nie ma magic i jest pomijany.
+typedef struct
+{
+    char names[BOTTLE_COUNT][BOTTLE_NAME_MAX + 1];
+    uint32_t magic;
+} BottleNamesRecord;
+
+_Static_assert(sizeof(BottleNamesRecord) % 4 == 0, "rekord programowany slowami 32-bit");
+
+#define NAMES_SLOT_COUNT  (NAMES_FLASH_SIZE / sizeof(BottleNamesRecord))
+
+// Pierwszy wolny rekord w sektorze (NAMES_SLOT_COUNT = sektor pelny).
+static uint32_t namesNextSlot = 0;
 
 /* USER CODE END PV */
 
@@ -157,6 +190,7 @@ extern void videoTaskFunc(void *argument);
 void GetManufacturerId (uint8_t *manufacturer_id);
 void EnableMemoryMappedMode(uint8_t manufacturer_id);  
 static void MX_USART6_UART_Init(void);
+static void BottleNames_Load(void);
 
 /* USER CODE END PFP */
 
@@ -283,6 +317,7 @@ HAL_GPIO_Init(GPIOI, &GPIO_InitStruct);
 // Zawor zamkniety na starcie. Otwiera sie dopiero po nacisnieciu "Nalej".
 HAL_GPIO_WritePin(GPIOI, GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3, GPIO_PIN_SET);
 // HAL_GPIO_WritePin(GPIOI, GPIO_PIN_0, GPIO_PIN_RESET); // <- TEST: zawor otwarty od razu po starcie
+BottleNames_Load();
 MX_USART6_UART_Init();
   HAL_UART_Receive_IT(&huart6, &ble_rx_data, 1);
 /* USER CODE END 2 */
@@ -1041,6 +1076,9 @@ static void BLE_HandleLine(void)
 
     uint8_t idx = (uint8_t)(id - '1');
     strcpy(bottleName[idx], name);
+    bottleNamesVersion++;
+    bottleNamesChangedTick = HAL_GetTick();
+    bottleNamesDirty = 1;
 
     AppendBottleLine(0, "$OK,", idx);
     BLE_Send(ble_reply);
@@ -1153,6 +1191,118 @@ const char *GetBottleName(uint8_t bottle_id)
     return bottleName[bottle_id - 1];
 }
 
+uint8_t GetBottleNamesVersion(void)
+{
+    return bottleNamesVersion;
+}
+
+static const BottleNamesRecord *NamesSlot(uint32_t slot)
+{
+    return (const BottleNamesRecord *)(NAMES_FLASH_ADDR + slot * sizeof(BottleNamesRecord));
+}
+
+static uint8_t IsNamesSlotErased(uint32_t slot)
+{
+    const uint32_t *word = (const uint32_t *)NamesSlot(slot);
+    for (uint32_t i = 0; i < sizeof(BottleNamesRecord) / 4; i++)
+    {
+        if (word[i] != 0xFFFFFFFFu)
+        {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+// Wczytuje ostatnio zapisane nazwy. Wolac przed startem schedulera.
+static void BottleNames_Load(void)
+{
+    const BottleNamesRecord *last = NULL;
+    uint32_t slot = 0;
+
+    for (; slot < NAMES_SLOT_COUNT; slot++)
+    {
+        const BottleNamesRecord *rec = NamesSlot(slot);
+        if (rec->magic == NAMES_MAGIC)
+        {
+            last = rec;
+        }
+        else if (IsNamesSlotErased(slot))
+        {
+            break;
+        }
+    }
+    namesNextSlot = slot;
+
+    if (last != NULL)
+    {
+        for (uint8_t i = 0; i < BOTTLE_COUNT; i++)
+        {
+            memcpy(bottleName[i], last->names[i], BOTTLE_NAME_MAX);
+            bottleName[i][BOTTLE_NAME_MAX] = '\0';
+        }
+        bottleNamesVersion++;
+    }
+}
+
+static HAL_StatusTypeDef BottleNames_EraseSector(void)
+{
+    FLASH_EraseInitTypeDef erase = {0};
+    uint32_t sectorError = 0;
+
+    erase.TypeErase = FLASH_TYPEERASE_SECTORS;
+    erase.Sector = NAMES_FLASH_SECTOR;
+    erase.NbSectors = 1;
+    erase.VoltageRange = FLASH_VOLTAGE_RANGE_3;
+
+    HAL_StatusTypeDef status = HAL_FLASHEx_Erase(&erase, &sectorError);
+    // Flash jest czytany przez D-Cache - bez tego zostalyby stare dane.
+    SCB_InvalidateDCache_by_Addr((uint32_t *)NAMES_FLASH_ADDR, NAMES_FLASH_SIZE);
+    namesNextSlot = 0;
+    return status;
+}
+
+// Zapisuje aktualne nazwy jako nowy rekord. Tylko z taska (nie z przerwania):
+// kasowanie sektora zatrzymuje procesor na 1-2 s.
+static void BottleNames_Save(void)
+{
+    BottleNamesRecord rec;
+    memset(&rec, 0, sizeof(rec));
+
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    memcpy(rec.names, bottleName, sizeof(rec.names));
+    bottleNamesDirty = 0;
+    __set_PRIMASK(primask);
+    rec.magic = NAMES_MAGIC;
+
+    HAL_FLASH_Unlock();
+    __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_EOP | FLASH_FLAG_ALL_ERRORS);
+
+    if (namesNextSlot >= NAMES_SLOT_COUNT || !IsNamesSlotErased(namesNextSlot))
+    {
+        if (BottleNames_EraseSector() != HAL_OK)
+        {
+            HAL_FLASH_Lock();
+            return;
+        }
+    }
+
+    uint32_t addr = (uint32_t)NamesSlot(namesNextSlot);
+    const uint32_t *word = (const uint32_t *)&rec;
+    for (uint32_t i = 0; i < sizeof(rec) / 4; i++)
+    {
+        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, addr + i * 4, word[i]) != HAL_OK)
+        {
+            break;
+        }
+    }
+    SCB_InvalidateDCache_by_Addr((uint32_t *)(addr & ~31u), sizeof(rec) + 32);
+    HAL_FLASH_Lock();
+
+    namesNextSlot++;
+}
+
 uint8_t BLE_GetCommand(void)
 {
     uint32_t primask = __get_PRIMASK();
@@ -1188,6 +1338,12 @@ void StartDefaultTask(void *argument)
     waga_surowa = HX711_ReadAverage(10);
     // Przeliczenie surowej wartosci na gramy wzgledem tary.
     waga_gramy = (int32_t)((waga_surowa - hx711_offset) / HX711_SCALE);
+
+    // Aplikacja wysyla zwykle kilka $SET pod rzad - zapisujemy raz, po chwili ciszy.
+    if (bottleNamesDirty && (HAL_GetTick() - bottleNamesChangedTick) >= NAMES_SAVE_DELAY_MS)
+    {
+        BottleNames_Save();
+    }
     osDelay(100);
   }
   /* USER CODE END 5 */
