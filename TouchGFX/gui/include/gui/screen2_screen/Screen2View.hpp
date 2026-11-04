@@ -9,7 +9,10 @@ extern "C"{
     void SetValveState(uint8_t valve_id, uint8_t state);
     uint8_t BLE_GetCommand(void);
     const char *GetBottleName(uint8_t bottle_id);
+    uint16_t GetBottleVolume(uint8_t bottle_id);
     uint8_t GetBottleNamesVersion(void);
+    uint8_t BLE_GetMix(uint8_t *bottles, uint16_t *times);
+    void SetPouringBusy(uint8_t busy);
 }
 struct RecipeStep {
     uint8_t bottleId;  
@@ -46,6 +49,8 @@ protected:
     void setSelectedRecipe(int16_t itemIndex);
     void startPouring(uint8_t bottleNum);
     void startRecipe(uint8_t recipeIndex);
+    void startSteps(const RecipeStep* steps);
+    void startCustomMix();
     void openCurrentStepValve();
     void handleBleCommand(uint8_t cmd);
     void stopAll();
@@ -63,10 +68,14 @@ protected:
     uint16_t tickCounter;
     uint8_t activeBottle;
 
-    uint8_t currentRecipeIdx;                
+    // Kroki nalewanego przepisu (z recipeList albo customSteps), konczy je bottleId == 0.
+    const RecipeStep* activeSteps;
     uint8_t currentStepIdx;                   
 
     static const DrinkRecipe recipeList[3];
+
+    // Wlasny drink z aplikacji ("$MIX"): maks. 4 kroki + koncowy {0,0,0}.
+    RecipeStep customSteps[5];
 
 };
 

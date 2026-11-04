@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Objaśnienie dopisanego kodu – MyApplication_1</title>
+<style>
+  @page { size: A4; margin: 16mm 13mm 16mm 13mm; }
+  body { font-family: "Segoe UI", Arial, sans-serif; font-size: 10.2pt; line-height: 1.42; color: #1b1b1b; }
+  h1 { font-size: 24pt; margin: 0 0 6px 0; color: #0b3d6b; }
+  h2 { font-size: 16pt; color: #0b3d6b; border-bottom: 2px solid #0b3d6b; padding-bottom: 3px; margin-top: 0; page-break-before: always; }
+  h2.first { page-break-before: auto; }
+  h3 { font-size: 12.5pt; color: #134f86; margin: 18px 0 6px 0; page-break-after: avoid; }
+  h4 { font-size: 11pt; color: #333; margin: 12px 0 4px 0; page-break-after: avoid; }
+  p { margin: 5px 0 7px 0; }
+  code, pre, td.c { font-family: Consolas, "Courier New", monospace; }
+  code { background: #eef2f6; padding: 0 3px; border-radius: 3px; font-size: 9.2pt; }
+  pre.blk { background: #f4f6f8; border: 1px solid #d5dbe1; padding: 7px 9px; font-size: 8.8pt; white-space: pre-wrap; page-break-inside: avoid; }
+  table { border-collapse: collapse; width: 100%; margin: 6px 0 12px 0; }
+  table.code td { border: 1px solid #d5dbe1; vertical-align: top; padding: 3px 6px; }
+  table.code tr { page-break-inside: avoid; }
+  table.code td.n { width: 34px; text-align: right; color: #7a8591; font-family: Consolas, monospace; font-size: 8.5pt; background: #fafbfc; }
+  table.code td.c { width: 44%; font-size: 8.5pt; white-space: pre-wrap; background: #f7f9fb; color: #0d2a45; }
+  table.code td.e { font-size: 9.4pt; }
+  table.code th, table.t th { background: #0b3d6b; color: #fff; text-align: left; padding: 4px 6px; font-size: 9.2pt; }
+  table.t td { border: 1px solid #d5dbe1; padding: 3px 6px; vertical-align: top; font-size: 9.4pt; }
+  .box { border-left: 4px solid #134f86; background: #eef4fa; padding: 6px 10px; margin: 8px 0; page-break-inside: avoid; }
+  .warn { border-left: 4px solid #c47a00; background: #fff6e5; padding: 6px 10px; margin: 8px 0; page-break-inside: avoid; }
+  .tpl { border-left: 4px solid #888; background: #f2f2f2; padding: 6px 10px; margin: 8px 0; }
+  .file { display: inline-block; background: #0b3d6b; color: #fff; padding: 2px 8px; border-radius: 3px; font-family: Consolas, monospace; font-size: 10pt; }
+  .small { font-size: 8.8pt; color: #555; }
+  ul, ol { margin: 4px 0 8px 0; padding-left: 22px; }
+  li { margin: 2px 0; }
+  .cover { text-align: left; margin-top: 60px; }
+  .toc li { margin: 3px 0; }
+  .diagram { font-family: Consolas, monospace; font-size: 8.6pt; background: #f8fafc; border: 1px solid #cdd6df; padding: 8px; white-space: pre; page-break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<!-- ===================================================== OKŁADKA -->
+<div class="cover">
+<h1>Objaśnienie dopisanego kodu</h1>
+<p style="font-size:13pt;color:#134f86;margin-top:0">Projekt <b>MyApplication_1</b> – nalewak napojów na STM32F746G-DISCO (TouchGFX + FreeRTOS + BLE + waga HX711)</p>
+<p class="small">Gałąź: <code>feature/setting_bottles_conf</code> · Stan na 3 listopada 2026 (łącznie z niezacommitowanymi zmianami)</p>
+
+<div class="box">
+<b>Co jest w tym dokumencie.</b> Każdy fragment kodu, który został dopisany ręcznie do projektu wygenerowanego przez STM32CubeMX i TouchGFX Designer,
+jest tu pokazany linia po linii: <i>numer linii – kod – co robi i z czym jest powiązany</i>. Kod wygenerowany automatycznie nie jest omawiany,
+chyba że Twój kod z niego korzysta (wtedy jest krótko opisany, żeby było wiadomo skąd się bierze dana funkcja lub zmienna).
+Fragmenty w sekcjach <code>USER CODE</code>, które pochodzą z szablonu płytki ST (SDRAM, QSPI), są opisane osobno i oznaczone szarą ramką.
+</div>
+
+<h3>Spis treści</h3>
+<ol class="toc">
+  <li>Jak cały system się łączy (architektura i przepływ danych)</li>
+  <li>Pojęcia, które warto znać przed czytaniem kodu</li>
+  <li><code>Core/Inc/stm32f7xx_hal_conf.h</code> – włączenie sterownika UART</li>
+  <li><code>STM32F746XX_FLASH.ld</code> – rezerwacja sektora flash na nazwy butelek</li>
+  <li><code>Core/Src/stm32f7xx_it.c</code> – obsługa przerwania USART6</li>
+  <li><code>Core/Inc/main.h</code> – funkcje udostępnione dla GUI</li>
+  <li><code>Core/Src/main.c</code> – logika sprzętowa (waga, zawory, BLE, zapis do flash)</li>
+  <li><code>gui/model/Model.hpp</code>, <code>Model.cpp</code>, <code>ModelListener.hpp</code></li>
+  <li><code>gui/screen1_screen/Screen1Presenter.*</code> i <code>Screen1View.*</code> – ekran wagi</li>
+  <li><code>gui/screen2_screen/Screen2View.hpp</code> i <code>Screen2View.cpp</code> – ekran menu/drinków</li>
+  <li><code>gui/containers/CustomContainer1.*</code> – element listy przepisów</li>
+  <li>Zmiany w TouchGFX Designer (<code>.touchgfx</code>, <code>texts.xml</code>)</li>
+  <li>Protokół komunikacji BLE – ściąga</li>
+  <li>Scenariusze krok po kroku (co się dzieje po naciśnięciu / po komendzie)</li>
+  <li>Uwagi i potencjalne problemy znalezione przy analizie</li>
+</ol>
+</div>
+
+<!-- ===================================================== 1. ARCHITEKTURA -->
+<h2>1. Jak cały system się łączy</h2>
+
+<p>Program działa na mikrokontrolerze <b>STM32F746</b> (płytka STM32F746G-DISCO z ekranem dotykowym 480×272). Składa się z dwóch „światów”:</p>
+<ul>
+  <li><b>Świat C (katalog <code>Core/</code>)</b> – kod niskopoziomowy: obsługa pinów (GPIO), czujnika wagi HX711, zaworów, modułu Bluetooth (UART), pamięci flash. Główny plik: <code>main.c</code>.</li>
+  <li><b>Świat C++ (katalog <code>TouchGFX/gui/</code>)</b> – interfejs graficzny zbudowany wg wzorca <b>MVP</b> (Model – View – Presenter), który wymusza TouchGFX.</li>
+</ul>
+<p>Oba światy łączą się przez zwykłe funkcje C (np. <code>SetValveState</code>, <code>BLE_GetCommand</code>, <code>GetBottleName</code>) oraz jedną zmienną globalną <code>waga_gramy</code>. Po stronie C++ są one deklarowane w bloku <code>extern "C"</code>.</p>
+
+<table class="t" style="text-align:center">
+<tr><td colspan="3" style="background:#e9eef3"><b>SPRZĘT</b><br>HX711 (waga): PB4 = DOUT, PG7 = SCK &nbsp;·&nbsp; 4 zawory (przekaźniki): PI0, PI1, PI2, PI3 &nbsp;·&nbsp; moduł BLE: PC6 = TX, PC7 = RX</td></tr>
+<tr><td colspan="3">▲▼ piny GPIO &nbsp;&nbsp;&nbsp; ▲▼ bajty UART (przerwanie USART6)</td></tr>
+<tr><td colspan="3" style="background:#eef4fa"><b>main.c (C)</b><br>
+<code>HX711_Read</code> / <code>HX711_ReadAverage</code> · <code>SetValveState(nr, stan)</code><br>
+<code>StartDefaultTask</code> (co ~1 s): liczy <code>waga_gramy</code>, zapisuje nazwy do flash (<code>BottleNames_Save</code>)<br>
+<code>HAL_UART_RxCpltCallback</code> → <code>BLE_HandleLine</code> · dane: <code>ble_command</code>, <code>bottleName[]</code>, <code>bottleVolume[]</code>, <code>bottleNamesVersion</code></td></tr>
+<tr><td style="width:50%">▼ <code>extern waga_gramy</code> &nbsp; ▲ <code>SetValveState</code></td><td colspan="2">▼ <code>BLE_GetCommand</code>, <code>GetBottleName</code>, <code>GetBottleVolume</code>, <code>GetBottleNamesVersion</code> &nbsp; ▲ <code>SetValveState</code></td></tr>
+<tr><td style="background:#f4f8ee"><b>Model.cpp</b><br><code>tick()</code>: co 6 klatek <code>UpdateWeight(waga_gramy)</code><br><code>setValve(bool)</code> → <code>SetValveState(1, …)</code></td>
+    <td colspan="2" rowspan="5" style="background:#f4f8ee;vertical-align:middle"><b>Screen2View.cpp</b> (ekran menu)<br><code>handleTickEvent()</code> ~60×/s:<br>komendy BLE, odświeżanie nazw,<br>liczniki czasu nalewania, przepisy<br><br>przyciski butelek, lista przepisów, NALEJ</td></tr>
+<tr><td>▼ <code>ModelListener::UpdateWeight</code> &nbsp; ▲ <code>model-&gt;setValve</code></td></tr>
+<tr><td style="background:#f4f8ee"><b>Screen1Presenter</b><br><code>UpdateWeight</code> → <code>view.SetWeight</code><br><code>startPouring</code> / <code>stopPouring</code></td></tr>
+<tr><td>▼ <code>view.SetWeight</code> &nbsp; ▲ <code>presenter-&gt;startPouring</code></td></tr>
+<tr><td style="background:#f4f8ee"><b>Screen1View</b> (ekran wagi)<br><code>SetWeight</code>: wpisuje liczbę na ekran<br><code>pourButtonClicked</code> / <code>stopButtonClicked</code></td></tr>
+</table>
+
+
+<h3>Wątki (taski FreeRTOS) i przerwania – kto kiedy działa</h3>
+<table class="t">
+<tr><th>Kontekst</th><th>Co wykonuje (Twój kod)</th><th>Jak często</th></tr>
+<tr><td><code>defaultTask</code> (<code>StartDefaultTask</code>)</td><td>Tara wagi na starcie, potem pomiar wagi i opóźniony zapis nazw butelek do flash.</td><td>pętla z <code>osDelay(100)</code> + czas pomiaru (~10 odczytów)</td></tr>
+<tr><td><code>TouchGFXTask</code></td><td><code>Model::tick()</code>, <code>Screen2View::handleTickEvent()</code>, obsługa przycisków.</td><td>co klatkę ekranu (ok. 60 razy na sekundę – takie założenie jest w komentarzach)</td></tr>
+<tr><td>Przerwanie USART6</td><td><code>HAL_UART_RxCpltCallback</code> – analiza każdego bajtu z BLE, obsługa <code>$SET</code>/<code>$GET</code>, natychmiastowy STOP.</td><td>po każdym odebranym bajcie</td></tr>
+<tr><td><code>main()</code> przed startem schedulera</td><td>Konfiguracja pinów, wczytanie nazw z flash, start UART.</td><td>raz</td></tr>
+</table>
+
+<!-- ===================================================== 2. POJĘCIA -->
+<h2>2. Pojęcia, które warto znać przed czytaniem kodu</h2>
+<table class="t">
+<tr><th style="width:24%">Pojęcie</th><th>Wyjaśnienie</th></tr>
+<tr><td><b>HAL</b></td><td>Biblioteka ST (<i>Hardware Abstraction Layer</i>). Funkcje typu <code>HAL_GPIO_WritePin</code>, <code>HAL_UART_Init</code>, <code>HAL_FLASH_Program</code> ukrywają rejestry procesora.</td></tr>
+<tr><td><b>GPIO, port, pin</b></td><td>Wyprowadzenia procesora są pogrupowane w porty (GPIOA … GPIOK), każdy ma piny 0–15. „PI0” = port I, pin 0. Pin może być wejściem, wyjściem albo funkcją alternatywną (np. linią UART).</td></tr>
+<tr><td><b>SET / RESET</b></td><td><code>GPIO_PIN_SET</code> = stan wysoki (3,3 V), <code>GPIO_PIN_RESET</code> = stan niski (0 V).</td></tr>
+<tr><td><b>Zegar peryferium</b></td><td>Każde peryferium (port GPIO, UART) trzeba „włączyć” makrem <code>__HAL_RCC_xxx_CLK_ENABLE()</code>, inaczej nie reaguje na konfigurację.</td></tr>
+<tr><td><b>Przerwanie (IRQ)</b></td><td>Sprzęt przerywa bieżący kod, wykonuje funkcję obsługi (np. <code>USART6_IRQHandler</code>) i wraca. Kod w przerwaniu musi być krótki i nie może czekać (<code>osDelay</code> jest zabronione).</td></tr>
+<tr><td><b>Callback HAL</b></td><td>Funkcja o ustalonej nazwie (np. <code>HAL_UART_RxCpltCallback</code>), którą HAL woła z przerwania, gdy coś się zakończy. W bibliotece jest wersja „pusta” oznaczona <code>__weak</code> – Twoja definicja ją zastępuje.</td></tr>
+<tr><td><b>FreeRTOS, task, <code>osDelay</code></b></td><td>System czasu rzeczywistego dzielący procesor między wątki. <code>osDelay(n)</code> usypia bieżący wątek na n ms i oddaje procesor innym.</td></tr>
+<tr><td><b><code>HAL_GetTick()</code></b></td><td>Liczba milisekund od startu (u Ciebie zwiększana przez timer TIM6 w <code>HAL_TIM_PeriodElapsedCallback</code>).</td></tr>
+<tr><td><b><code>static</code></b></td><td>Przy zmiennej/funkcji globalnej: widoczna tylko w tym pliku. Przy zmiennej lokalnej: zachowuje wartość między wywołaniami.</td></tr>
+<tr><td><b><code>volatile</code></b></td><td>Mówi kompilatorowi „ta zmienna może się zmienić poza normalnym przepływem programu (np. w przerwaniu)”, więc zawsze ma ją czytać z pamięci.</td></tr>
+<tr><td><b>Sekcja krytyczna, PRIMASK</b></td><td><code>__disable_irq()</code> wyłącza przerwania, <code>__set_PRIMASK(primask)</code> przywraca poprzedni stan. Używane, by przerwanie nie zmieniło danych w połowie odczytu.</td></tr>
+<tr><td><b>Flash, sektor, kasowanie</b></td><td>Pamięć programu. Bity można programować tylko z 1 na 0; żeby wrócić do 1 (wartość <code>0xFF</code>), kasuje się cały sektor. STM32F746 ma 8 sektorów; sektor 7 (256 KB) zaczyna się pod <code>0x080C0000</code>.</td></tr>
+<tr><td><b>D-Cache</b></td><td>Pamięć podręczna danych procesora Cortex-M7. Po zmianie zawartości flash trzeba ją unieważnić, żeby procesor nie czytał starej kopii.</td></tr>
+<tr><td><b>UART, 9600 8N1</b></td><td>Szeregowa transmisja: 9600 bitów/s, 8 bitów danych, brak parzystości, 1 bit stopu. Moduł BLE (HM-10 / JDY / HC-05) zamienia ją na Bluetooth.</td></tr>
+<tr><td><b>MVP w TouchGFX</b></td><td><b>View</b> – co widać (widżety, przyciski). <b>Presenter</b> – pośrednik między widokiem a modelem. <b>Model</b> – dane aplikacji, jeden na cały program, ma metodę <code>tick()</code> wołaną co klatkę.</td></tr>
+<tr><td><b>Tick TouchGFX</b></td><td>Jedno „uderzenie zegara” GUI, czyli jedna klatka. Zakładasz ok. 60 ticków na sekundę, więc 180 ticków ≈ 3 s.</td></tr>
+<tr><td><b><code>invalidate()</code></b></td><td>Metoda widżetu TouchGFX: „mój obszar się zmienił, przerysuj go w następnej klatce”.</td></tr>
+<tr><td><b><code>Unicode::strncpy / snprintf</code></b></td><td>TouchGFX przechowuje teksty jako znaki 16-bitowe (<code>UnicodeChar</code>), więc zwykłych funkcji z <code>string.h</code> nie da się użyć do buforów widżetów.</td></tr>
+<tr><td><b>Wildcard (<code>&lt;value&gt;</code>)</b></td><td>Miejsce w tekście TouchGFX, które jest wypełniane w czasie działania z bufora <code>xxxBuffer</code>.</td></tr>
+<tr><td><b><code>extern "C"</code></b></td><td>Kompilator C++ „miesza” nazwy funkcji (name mangling). <code>extern "C"</code> mówi: „ta funkcja jest napisana w C, szukaj jej pod zwykłą nazwą” – bez tego linker nie znalazłby funkcji z <code>main.c</code>.</td></tr>
+</table>
+
+<!-- ===================================================== 3. HAL CONF -->
+<h2>3. <span class="file">Core/Inc/stm32f7xx_hal_conf.h</span></h2>
+<p>Plik konfiguracyjny biblioteki HAL – decyduje, które sterowniki są kompilowane.</p>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">68</td><td class="c">#define HAL_UART_MODULE_ENABLED</td><td class="e">Wcześniej ta linia była zakomentowana. Odkomentowanie włącza sterownik UART (typ <code>UART_HandleTypeDef</code>, funkcje <code>HAL_UART_Init</code>, <code>HAL_UART_Receive_IT</code>, <code>HAL_UART_Transmit_IT</code>, <code>HAL_UART_IRQHandler</code>). Bez tego cały kod BLE w <code>main.c</code> by się nie skompilował. Razem z tym dodano do projektu pliki <code>stm32f7xx_hal_uart.c/.h</code> i <code>stm32f7xx_hal_uart_ex.c/.h</code> w katalogu <code>Drivers/</code>.</td></tr>
+</table>
+
+<!-- ===================================================== 4. LINKER -->
+<h2>4. <span class="file">STM32F746XX_FLASH.ld</span></h2>
+<p>Skrypt linkera – mówi, gdzie w pamięci mikrokontrolera ma trafić program.</p>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">59</td><td class="c">FLASH (rx) : ORIGIN = 0x08000000, LENGTH = 768K  /* sektor 7 (0x080C0000) = nazwy butelek */</td><td class="e">Było <code>1024K</code> (cały flash). Zmniejszenie do 768 KB sprawia, że linker nigdy nie umieści programu w ostatnim sektorze (sektor 7: od <code>0x080C0000</code>, 256 KB). Ten sektor jest używany przez <code>BottleNames_Save()</code> w <code>main.c</code> jako „notes” na nazwy i ilości w butelkach. Gdyby program tam wszedł, kasowanie sektora usunęłoby kod. <br><b>Powiązanie:</b> stałe <code>NAMES_FLASH_ADDR</code>, <code>NAMES_FLASH_SIZE</code>, <code>NAMES_FLASH_SECTOR</code> w <code>main.c</code>.</td></tr>
+</table>
+<div class="warn">Ta zmiana dotyczy tylko kompilacji przez GCC (STM32CubeIDE / Makefile / CMake). Projekty EWARM (<code>.icf</code>) i Keil (<code>.sct</code>) mają własne skrypty linkera, które nadal widzą 1024 KB.</div>
+
+<!-- ===================================================== 5. IT -->
+<h2>5. <span class="file">Core/Src/stm32f7xx_it.c</span></h2>
+<p>Plik z funkcjami obsługi przerwań. Nazwy funkcji muszą dokładnie pasować do tablicy wektorów przerwań w pliku startowym (<code>startup_stm32f746xx.s</code>).</p>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">64</td><td class="c">extern UART_HandleTypeDef huart6;</td><td class="e">Informacja dla kompilatora: zmienna <code>huart6</code> istnieje, ale jest zdefiniowana w innym pliku (<code>main.c</code>, linia 126). Dzięki temu można jej tu użyć.</td></tr>
+<tr><td class="n">208</td><td class="c">void USART6_IRQHandler(void)</td><td class="e">Funkcja, którą procesor wywołuje automatycznie przy każdym przerwaniu USART6 (odebrano bajt, zakończono wysyłanie, błąd). Przerwanie jest włączone w <code>MX_USART6_UART_Init()</code>.</td></tr>
+<tr><td class="n">210</td><td class="c">    HAL_UART_IRQHandler(&amp;huart6);</td><td class="e">Przekazanie obsługi do HAL. HAL sprawdza, co się stało, i woła odpowiedni callback: <code>HAL_UART_RxCpltCallback</code> (bajt odebrany), <code>HAL_UART_ErrorCallback</code> (błąd) – obie są Twoje, w <code>main.c</code>.</td></tr>
+</table>
+
+<!-- ===================================================== 6. MAIN.H -->
+<h2>6. <span class="file">Core/Inc/main.h</span></h2>
+<p>Nagłówek, który mogą dołączyć inne pliki, żeby wywoływać funkcje z <code>main.c</code>. Dopisany fragment w sekcji <code>USER CODE BEGIN EFP</code> (<i>Exported Function Prototypes</i>):</p>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">57</td><td class="c">void SetValveState(uint8_t valve_id, uint8_t state);</td><td class="e">Deklaracja funkcji otwierającej/zamykającej zawór 1–4. Definicja: <code>main.c</code> linia 842.</td></tr>
+<tr><td class="n">59–60</td><td class="c">// Zwraca ostatnia komende ...
+uint8_t BLE_GetCommand(void);</td><td class="e">Deklaracja funkcji, którą GUI pobiera komendę z Bluetooth (i jednocześnie ją kasuje). Definicja: <code>main.c</code> linia 1381.</td></tr>
+<tr><td class="n">62–63</td><td class="c">const char *GetBottleName(uint8_t bottle_id);</td><td class="e">Deklaracja gettera nazwy napoju w butelce. Definicja: <code>main.c</code> linia 1249.</td></tr>
+</table>
+<p class="small">Uwaga: <code>GetBottleVolume</code> i <code>GetBottleNamesVersion</code> nie są tu zadeklarowane – GUI deklaruje je samo w <code>Screen2View.hpp</code>. Działa to poprawnie, ale dla porządku można je dopisać także tutaj.</p>
+
+<!-- ===================================================== 7. MAIN.C -->
+<h2>7. <span class="file">Core/Src/main.c</span></h2>
+<p>Najważniejszy plik projektu. Omówienie idzie od góry pliku, sekcja po sekcji.</p>
+
+<h3>7.1. Dołączone nagłówki (linie 27–29)</h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">28</td><td class="c">#include &lt;string.h&gt;</td><td class="e">Standardowa biblioteka C do napisów: <code>strlen</code>, <code>strcmp</code>, <code>strncmp</code>, <code>strcpy</code>, <code>strchr</code>, <code>memcpy</code>, <code>memset</code>. Używana w kodzie BLE i przy zapisie do flash.</td></tr>
+</table>
+
+<h3>7.2. Stałe (<code>#define</code>, linie 37–81)</h3>
+<div class="tpl"><b>Z szablonu płytki (nie Twoje):</b> linie 39–58 – <code>REFRESH_COUNT</code>, <code>SDRAM_*</code>, <code>FLASH_READ_JEDEC_ID</code>, <code>FLASH_FAST_READ_QUAD_IO</code>, <code>FLASH_*_DUMMY_CYCLES</code>. Są potrzebne do uruchomienia zewnętrznej pamięci SDRAM (bufor obrazu ekranu) i zewnętrznego flasha QSPI (grafiki TouchGFX). Opis w podrozdziale 7.20.</div>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">60–63</td><td class="c">// --- Kalibracja wagi (HX711) ---
+// ...</td><td class="e">Komentarz z historią kalibracji: przy skali 61,9 telefon ważący 203 g pokazywał 274, więc nową skalę policzono proporcją 61,9 × 274 / 203 ≈ 83,5.</td></tr>
+<tr><td class="n">64</td><td class="c">#define HX711_SCALE   83.5f</td><td class="e">Ile jednostek surowego odczytu HX711 przypada na 1 gram. Sufiks <code>f</code> = liczba typu <code>float</code>. Używane w <code>StartDefaultTask</code> (linia 1415) przy przeliczaniu na gramy. Gdy waga pokazuje za dużo – zwiększ, gdy za mało – zmniejsz.</td></tr>
+<tr><td class="n">67</td><td class="c">#define BOTTLE_COUNT      4</td><td class="e">Liczba butelek/zaworów. Wyznacza rozmiary tablic <code>bottleName</code>, <code>bottleVolume</code> i zakres numerów w komendach BLE.</td></tr>
+<tr><td class="n">68</td><td class="c">#define BOTTLE_NAME_MAX   16</td><td class="e">Maksymalna długość nazwy napoju (bez kończącego znaku <code>'\0'</code>). Tablica ma więc 17 bajtów na nazwę. Pasuje do <code>BOTTLENAME1_SIZE = 17</code> w GUI.</td></tr>
+<tr><td class="n">69</td><td class="c">#define BLE_LINE_MAX      40</td><td class="e">Maksymalna długość wiadomości tekstowej od aplikacji (np. <code>SET,2,Wodka,700</code>). Dłuższa ustawi flagę przepełnienia i zwróci <code>$ERR,LEN</code>.</td></tr>
+<tr><td class="n">70</td><td class="c">#define BLE_TX_MAX        128</td><td class="e">Rozmiar bufora odpowiedzi. Największa odpowiedź (<code>$GET</code>): 4 linie <code>$B,n,nazwa\n</code> (max 22 znaki każda) + <code>$END\n</code> = ok. 93 bajty, więc 128 wystarcza.</td></tr>
+<tr><td class="n">71</td><td class="c">#define BOTTLE_VOLUME_MAX 9999 // ml</td><td class="e">Górny limit ilości płynu w butelce, sprawdzany w <code>ParseVolume</code> i przy wczytywaniu z flash. Zmieści się w 4 cyfrach i w <code>uint16_t</code> (max 65535).</td></tr>
+<tr><td class="n">75</td><td class="c">#define NAMES_FLASH_ADDR    0x080C0000u</td><td class="e">Adres początku sektora 7 wewnętrznego flasha – tam zapisywane są nazwy i ilości. Sufiks <code>u</code> = liczba bez znaku. Musi zgadzać się ze skryptem linkera (rozdział 4).</td></tr>
+<tr><td class="n">76</td><td class="c">#define NAMES_FLASH_SIZE    0x40000u</td><td class="e">Rozmiar sektora: 0x40000 = 262 144 bajty = 256 KB.</td></tr>
+<tr><td class="n">77</td><td class="c">#define NAMES_FLASH_SECTOR  FLASH_SECTOR_7</td><td class="e">Numer sektora w formacie HAL, potrzebny do kasowania (<code>HAL_FLASHEx_Erase</code>).</td></tr>
+<tr><td class="n">78</td><td class="c">#define NAMES_MAGIC 0x424F5432u // "BOT2"</td><td class="e">„Podpis” ważnego rekordu. Bajty 0x42 0x4F 0x54 0x32 to w ASCII „B O T 2”. Gdy zmienisz budowę struktury <code>BottleNamesRecord</code>, zmień też tę liczbę (np. na „BOT3”) – wtedy stare, niepasujące rekordy zostaną zignorowane zamiast odczytane jako śmieci.</td></tr>
+<tr><td class="n">79</td><td class="c">#define NAMES_SAVE_DELAY_MS 2000u</td><td class="e">Zapis do flash następuje dopiero 2 s po ostatniej zmianie. Aplikacja wysyła kilka <code>$SET</code> pod rząd, a zapis jest wolny i zużywa flash – dzięki temu robimy jeden zapis zamiast czterech.</td></tr>
+</table>
+
+<h3>7.3. Zmienne globalne (linie 123–176)</h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">124</td><td class="c">static FMC_SDRAM_CommandTypeDef Command;</td><td class="e"><i>Z szablonu.</i> Struktura komendy do inicjalizacji SDRAM (używana w <code>MX_FMC_Init</code>).</td></tr>
+<tr><td class="n">126</td><td class="c">UART_HandleTypeDef huart6;</td><td class="e">„Uchwyt” (handle) portu szeregowego USART6 – struktura, w której HAL trzyma konfigurację i stan transmisji. Nie jest <code>static</code>, bo używa go też <code>stm32f7xx_it.c</code>.</td></tr>
+<tr><td class="n">127</td><td class="c">uint8_t ble_rx_data = 0;</td><td class="e">Jednobajtowy bufor, do którego HAL wpisuje każdy odebrany znak z BLE. Odbiór jest ustawiany na 1 bajt i po każdym bajcie ponawiany.</td></tr>
+<tr><td class="n">129</td><td class="c">static volatile uint8_t ble_command = 0;</td><td class="e">„Skrzynka” na komendę z telefonu (<code>'1'..'4'</code>, <code>'A'..'C'</code>, <code>'S'</code>). Zapisuje ją przerwanie, odczytuje i zeruje GUI przez <code>BLE_GetCommand()</code>. <code>volatile</code>, bo zmienia się w przerwaniu.</td></tr>
+<tr><td class="n">131</td><td class="c">static uint8_t ble_prefix_seen = 0;</td><td class="e">Flaga: 1 = poprzedni bajt był <code>'#'</code>, więc bieżący bajt jest komendą.</td></tr>
+<tr><td class="n">134</td><td class="c">static char ble_line[BLE_LINE_MAX + 1];</td><td class="e">Bufor na treść wiadomości tekstowej <code>$...\n</code> (bez <code>$</code> i <code>\n</code>). +1 na kończące <code>'\0'</code>.</td></tr>
+<tr><td class="n">135</td><td class="c">static uint8_t ble_line_len = 0;</td><td class="e">Ile znaków jest już w <code>ble_line</code>.</td></tr>
+<tr><td class="n">136</td><td class="c">static uint8_t ble_line_active = 0;</td><td class="e">1 = jesteśmy w trakcie zbierania wiadomości (był <code>$</code>, nie było jeszcze <code>\n</code>).</td></tr>
+<tr><td class="n">137</td><td class="c">static uint8_t ble_line_overflow = 0;</td><td class="e">1 = wiadomość była dłuższa niż 40 znaków (nadmiar odrzucono).</td></tr>
+<tr><td class="n">140</td><td class="c">static char ble_tx_buf[BLE_TX_MAX];</td><td class="e">Bufor, z którego UART faktycznie wysyła dane. Wysyłanie w trybie przerwań (<code>_IT</code>) trwa w tle, więc dane muszą „żyć” w pamięci aż do końca – dlatego jest to zmienna globalna, a nie lokalna.</td></tr>
+<tr><td class="n">142</td><td class="c">static char ble_reply[BLE_TX_MAX];</td><td class="e">Bufor roboczy, w którym składa się odpowiedź (<code>AppendBottleLine</code>), zanim <code>BLE_Send</code> skopiuje ją do <code>ble_tx_buf</code>.</td></tr>
+<tr><td class="n">145–149</td><td class="c">static char bottleName[BOTTLE_COUNT][BOTTLE_NAME_MAX + 1] = {
+  "null", "null", "null", "null"
+};</td><td class="e">Tablica 4 nazw, każda do 16 znaków + <code>'\0'</code>. Domyślnie „null” – widoczne na ekranie, dopóki aplikacja nie ustawi nazw lub nie zostaną wczytane z flash. Zakomentowana linia to wcześniejsze domyślne nazwy.</td></tr>
+<tr><td class="n">151</td><td class="c">static uint16_t bottleVolume[BOTTLE_COUNT] = { 0, 0, 0, 0 };</td><td class="e">Ilość ml w każdej butelce, ustawiana z aplikacji (<code>$SET,n,Nazwa,ml</code>).</td></tr>
+<tr><td class="n">153</td><td class="c">static volatile uint8_t bottleNamesVersion = 0;</td><td class="e">Licznik zmian. Każda zmiana nazwy/ilości zwiększa go o 1. Ekran porównuje go ze swoją zapamiętaną wartością – jeśli się różni, odświeża napisy. To tani sposób na powiadomienie GUI o zmianie bez kolejek.</td></tr>
+<tr><td class="n">156</td><td class="c">static volatile uint8_t bottleNamesDirty = 0;</td><td class="e">1 = są niezapisane zmiany, które trzeba wpisać do flash.</td></tr>
+<tr><td class="n">157</td><td class="c">static volatile uint32_t bottleNamesChangedTick = 0;</td><td class="e">Czas (w ms z <code>HAL_GetTick</code>) ostatniej zmiany – do odliczenia 2 s przed zapisem.</td></tr>
+<tr><td class="n">159–162</td><td class="c">// Sektor jest zapisywany kolejnymi rekordami jak dziennik ...</td><td class="e">Opis strategii zapisu (patrz ramka niżej).</td></tr>
+<tr><td class="n">163–168</td><td class="c">typedef struct
+{
+    char names[BOTTLE_COUNT][BOTTLE_NAME_MAX + 1];
+    uint16_t volume[BOTTLE_COUNT];
+    uint32_t magic;
+} BottleNamesRecord;</td><td class="e">Jeden „rekord” zapisywany do flash: 4 nazwy (4×17 = 68 B), 4 ilości (4×2 = 8 B) i podpis <code>magic</code> (4 B). Razem 80 bajtów. <code>magic</code> jest celowo <b>na końcu</b> – jest programowany jako ostatni, więc jeśli zasilanie zniknie w trakcie zapisu, rekord nie będzie miał podpisu i zostanie pominięty.</td></tr>
+<tr><td class="n">170</td><td class="c">_Static_assert(sizeof(BottleNamesRecord) % 4 == 0, "...");</td><td class="e">Sprawdzenie w czasie <b>kompilacji</b>: rozmiar rekordu musi być wielokrotnością 4, bo flash jest programowany słowami 32-bitowymi. Gdy ktoś zmieni strukturę i warunek przestanie być spełniony, kompilacja się zatrzyma z tym komunikatem.</td></tr>
+<tr><td class="n">172</td><td class="c">#define NAMES_SLOT_COUNT (NAMES_FLASH_SIZE / sizeof(BottleNamesRecord))</td><td class="e">Ile rekordów zmieści się w sektorze: 262 144 / 80 = 3276 (dzielenie całkowite).</td></tr>
+<tr><td class="n">175</td><td class="c">static uint32_t namesNextSlot = 0;</td><td class="e">Numer pierwszego wolnego miejsca (slotu) w sektorze. Ustalany przy starcie w <code>BottleNames_Load</code>, zwiększany po każdym zapisie.</td></tr>
+</table>
+<div class="box"><b>Strategia „dziennika” (journal) we flash.</b> Zamiast kasować sektor przy każdym zapisie (wolne – 1–2 s – i zużywa pamięć, która wytrzymuje ok. 10 000 kasowań), każdy nowy zapis trafia do kolejnego pustego slotu. Przy starcie program szuka <b>ostatniego</b> rekordu z poprawnym <code>magic</code> – to aktualne dane. Sektor jest kasowany dopiero, gdy wszystkie ~3276 sloty są zajęte.</div>
+
+<h3>7.4. Prototypy funkcji (linie 193–199)</h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">194–195</td><td class="c">void GetManufacturerId (uint8_t *manufacturer_id);
+void EnableMemoryMappedMode(uint8_t manufacturer_id);</td><td class="e"><i>Z szablonu.</i> Funkcje dla zewnętrznego flasha QSPI.</td></tr>
+<tr><td class="n">196</td><td class="c">static void MX_USART6_UART_Init(void);</td><td class="e">Zapowiedź funkcji konfigurującej UART dla BLE (definicja w linii 939). Potrzebna, bo funkcja jest wywoływana w <code>main()</code> wcześniej, niż jest zdefiniowana w pliku.</td></tr>
+<tr><td class="n">197</td><td class="c">static void BottleNames_Load(void);</td><td class="e">Zapowiedź funkcji wczytującej nazwy z flash (definicja w linii 1291).</td></tr>
+</table>
+
+<h3>7.5. Waga – zmienne i odczyt HX711 (linie 203–242)</h3>
+<div class="box"><b>Jak działa HX711.</b> To 24-bitowy przetwornik analogowo-cyfrowy do belek tensometrycznych. Ma dwie linie: <b>DOUT</b> (dane, u Ciebie PB4) i <b>PD_SCK</b> (zegar, PG7). Gdy pomiar jest gotowy, HX711 ustawia DOUT na 0. Mikrokontroler podaje wtedy 24 impulsy zegara i po każdym czyta 1 bit (od najstarszego). 25. impuls wybiera kanał A ze wzmocnieniem 128 dla następnego pomiaru. Wynik jest liczbą ze znakiem w kodzie U2. Jeśli zegar zostanie w stanie wysokim dłużej niż 60 µs, HX711 przechodzi w uśpienie.</div>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">203</td><td class="c">int32_t waga_surowa = 0;</td><td class="e">Ostatni uśredniony surowy odczyt HX711. Przydatny przy kalibracji (podgląd w debugerze).</td></tr>
+<tr><td class="n">204</td><td class="c">int32_t waga_gramy  = 0;</td><td class="e">Masa w gramach. <b>Nie jest <code>static</code></b>, bo czyta ją <code>Model.cpp</code> (<code>extern "C" int32_t waga_gramy;</code>) i wysyła na ekran 1.</td></tr>
+<tr><td class="n">205</td><td class="c">static int32_t hx711_offset = 0;</td><td class="e">Tara – surowy odczyt pustej wagi. Odejmowany od każdego pomiaru, żeby pusta waga dawała 0 g.</td></tr>
+<tr><td class="n">208</td><td class="c">int32_t HX711_Read(void) {</td><td class="e">Funkcja wykonująca jeden pomiar.</td></tr>
+<tr><td class="n">209</td><td class="c">    uint32_t count = 0;</td><td class="e">Tu będą składane kolejne bity wyniku.</td></tr>
+<tr><td class="n">212</td><td class="c">    uint32_t timeout = HAL_GetTick() + 200;</td><td class="e">Moment (za 200 ms), po którym przestajemy czekać. Zabezpiecza przed zawieszeniem, gdy czujnik nie jest podłączony.</td></tr>
+<tr><td class="n">213</td><td class="c">    while(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_4) == GPIO_PIN_SET) {</td><td class="e">Czekamy, dopóki DOUT (PB4) jest w stanie wysokim, czyli dane nie są jeszcze gotowe.</td></tr>
+<tr><td class="n">214–216</td><td class="c">        if (HAL_GetTick() &gt; timeout) {
+            return hx711_offset;
+        }</td><td class="e">Gdy minęło 200 ms – zwracamy wartość tary. Po odjęciu tary w <code>StartDefaultTask</code> wyjdzie 0 g, więc brak czujnika = waga pokazuje 0.</td></tr>
+<tr><td class="n">217</td><td class="c">        osDelay(1);</td><td class="e">Usypiamy wątek na 1 ms, żeby czekanie nie blokowało innych zadań (np. GUI).</td></tr>
+<tr><td class="n">219</td><td class="c">    for(int i = 0; i &lt; 24; i++) {</td><td class="e">Odczyt 24 bitów.</td></tr>
+<tr><td class="n">220</td><td class="c">        HAL_GPIO_WritePin(GPIOG, GPIO_PIN_7, GPIO_PIN_SET);</td><td class="e">Zbocze narastające zegara PD_SCK (PG7) – HX711 wystawia kolejny bit na DOUT.</td></tr>
+<tr><td class="n">221</td><td class="c">        for(volatile int j=0; j&lt;50; j++);</td><td class="e">Krótkie opóźnienie programowe (rzędu ułamka mikrosekundy – pojedynczych µs). <code>volatile</code> zapobiega usunięciu pustej pętli przez optymalizator.</td></tr>
+<tr><td class="n">222</td><td class="c">        count = count &lt;&lt; 1;</td><td class="e">Przesunięcie dotychczasowego wyniku o 1 bit w lewo – robimy miejsce na nowy bit.</td></tr>
+<tr><td class="n">223</td><td class="c">        HAL_GPIO_WritePin(GPIOG, GPIO_PIN_7, GPIO_PIN_RESET);</td><td class="e">Zbocze opadające zegara.</td></tr>
+<tr><td class="n">224</td><td class="c">        for(volatile int j=0; j&lt;50; j++);</td><td class="e">Opóźnienie, żeby bit się ustabilizował.</td></tr>
+<tr><td class="n">225</td><td class="c">        if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_4) == GPIO_PIN_SET) count++;</td><td class="e">Jeśli DOUT = 1, ustawiamy najmłodszy bit wyniku.</td></tr>
+<tr><td class="n">227–229</td><td class="c">    HAL_GPIO_WritePin(GPIOG, GPIO_PIN_7, GPIO_PIN_SET);
+    for(volatile int j=0; j&lt;50; j++);
+    HAL_GPIO_WritePin(GPIOG, GPIO_PIN_7, GPIO_PIN_RESET);</td><td class="e">25. impuls zegara: wybiera kanał A i wzmocnienie 128 dla <b>następnego</b> pomiaru.</td></tr>
+<tr><td class="n">230</td><td class="c">    if (count &amp; 0x800000) count |= 0xFF000000;</td><td class="e">Rozszerzenie znaku: jeśli najstarszy z 24 bitów (bit 23) = 1, liczba jest ujemna, więc wypełniamy górne 8 bitów jedynkami, żeby 32-bitowa zmienna miała poprawną wartość ujemną.</td></tr>
+<tr><td class="n">231</td><td class="c">    return (int32_t)count;</td><td class="e">Zwrot wyniku jako liczby ze znakiem.</td></tr>
+<tr><td class="n">235</td><td class="c">int32_t HX711_ReadAverage(uint8_t times) {</td><td class="e">Średnia z <code>times</code> pomiarów – redukuje szum.</td></tr>
+<tr><td class="n">236</td><td class="c">    int64_t sum = 0;</td><td class="e">Suma 64-bitowa, żeby nie przepełnić się przy sumowaniu dużych 24-bitowych wartości.</td></tr>
+<tr><td class="n">237–240</td><td class="c">    for (uint8_t i = 0; i &lt; times; i++) {
+        sum += HX711_Read();
+        osDelay(5);
+    }</td><td class="e">Kolejne pomiary z 5 ms przerwy (HX711 przy 10 Hz i tak daje nowy wynik co ~100 ms – resztę czasu funkcja czeka w <code>HX711_Read</code>).</td></tr>
+<tr><td class="n">241</td><td class="c">    return (int32_t)(sum / times);</td><td class="e">Średnia arytmetyczna.</td></tr>
+</table>
+
+<h3>7.6. Inicjalizacja w <code>main()</code> (sekcja USER CODE 2, linie 297–327)</h3>
+<p>Ten kod wykonuje się raz, po inicjalizacji wygenerowanej przez CubeMX, a przed startem FreeRTOS.</p>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">298–299</td><td class="c">__HAL_RCC_GPIOB_CLK_ENABLE();
+__HAL_RCC_GPIOG_CLK_ENABLE();</td><td class="e">Włączenie zegarów portów B i G (dla HX711). Były już włączone w <code>MX_GPIO_Init</code>, ale powtórzenie nie szkodzi.</td></tr>
+<tr><td class="n">301</td><td class="c">GPIO_InitTypeDef GPIO_InitStruct = {0};</td><td class="e">Struktura opisująca konfigurację pinu, wyzerowana.</td></tr>
+<tr><td class="n">302–305</td><td class="c">GPIO_InitStruct.Pin = GPIO_PIN_4;
+GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+GPIO_InitStruct.Pull = GPIO_PULLUP;
+HAL_GPIO_Init(GPIOB, &amp;GPIO_InitStruct);</td><td class="e"><b>PB4 = DOUT HX711</b> (złącze Arduino D3) jako wejście z podciąganiem do 3,3 V. Podciąganie sprawia, że niepodłączony czujnik daje stan wysoki = „brak danych” i działa timeout.</td></tr>
+<tr><td class="n">307–311</td><td class="c">GPIO_InitStruct.Pin = GPIO_PIN_7;
+GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+GPIO_InitStruct.Pull = GPIO_NOPULL;
+GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+HAL_GPIO_Init(GPIOG, &amp;GPIO_InitStruct);</td><td class="e"><b>PG7 = PD_SCK HX711</b> (Arduino D4) jako wyjście push-pull (aktywnie wymusza 0 lub 1), bez rezystorów, niska prędkość zboczy (wystarcza, mniej zakłóceń).</td></tr>
+<tr><td class="n">313</td><td class="c">/* USER CODE BEGIN 2 */</td><td class="e">Zdublowany znacznik CubeMX wewnątrz już otwartej sekcji – patrz rozdział 15.</td></tr>
+<tr><td class="n">314</td><td class="c">__HAL_RCC_GPIOI_CLK_ENABLE();</td><td class="e">Zegar portu I – tam są piny zaworów.</td></tr>
+<tr><td class="n">316–319</td><td class="c">GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3;
+GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+GPIO_InitStruct.Pull = GPIO_PULLUP;
+HAL_GPIO_Init(GPIOI, &amp;GPIO_InitStruct);</td><td class="e">Piny <b>PI0, PI1, PI2, PI3</b> jako wyjścia sterujące zaworami 1–4 (na złączu Arduino: PI0 = D5, PI3 = D7, PI2 = D8, PI1 = D13). Operator <code>|</code> łączy maski kilku pinów, więc jedno wywołanie konfiguruje cztery. Pole <code>Speed</code> zostaje z poprzedniej konfiguracji (LOW).</td></tr>
+<tr><td class="n">322</td><td class="c">HAL_GPIO_WritePin(GPIOI, GPIO_PIN_0 | ... | GPIO_PIN_3, GPIO_PIN_SET);</td><td class="e">Wszystkie zawory <b>zamknięte</b> na starcie. Moduł przekaźników jest „aktywny stanem niskim”: 1 (3,3 V) = wyłączony, 0 = włączony.</td></tr>
+<tr><td class="n">323</td><td class="c">// HAL_GPIO_WritePin(GPIOI, GPIO_PIN_0, GPIO_PIN_RESET); // TEST</td><td class="e">Zakomentowany test – otwierał zawór 1 zaraz po starcie.</td></tr>
+<tr><td class="n">324</td><td class="c">BottleNames_Load();</td><td class="e">Wczytanie nazw i ilości z flash (rozdział 7.17). Wywoływane <b>przed</b> startem schedulera i UART, więc nic nie może w tym czasie zmienić tablic.</td></tr>
+<tr><td class="n">325</td><td class="c">MX_USART6_UART_Init();</td><td class="e">Konfiguracja portu szeregowego dla BLE (rozdział 7.8).</td></tr>
+<tr><td class="n">326</td><td class="c">HAL_UART_Receive_IT(&amp;huart6, &amp;ble_rx_data, 1);</td><td class="e">„Uzbrojenie” odbioru: HAL ma odebrać 1 bajt do <code>ble_rx_data</code> w tle i po odebraniu zawołać <code>HAL_UART_RxCpltCallback</code>. Od tej chwili moduł BLE może wysyłać dane.</td></tr>
+</table>
+
+<h3>7.7. <code>SetValveState</code> – sterowanie zaworami (linie 831–874)</h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">832–838</td><td class="c">// void SetValveState(uint8_t state) { ... }</td><td class="e">Stara, zakomentowana wersja dla jednego zaworu. Można usunąć.</td></tr>
+<tr><td class="n">842</td><td class="c">void SetValveState(uint8_t valve_id, uint8_t state){</td><td class="e">Otwiera (<code>state = 1</code>) lub zamyka (<code>state = 0</code>) zawór o numerze 1–4. Wołana z: <code>Model::setValve</code>, <code>Screen2View</code> (nalewanie, przepisy, STOP) i z przerwania BLE (STOP).</td></tr>
+<tr><td class="n">843–844</td><td class="c">  GPIO_TypeDef* port = GPIOI;
+  uint16_t pin = GPIO_PIN_0;</td><td class="e">Wartości domyślne. Uwaga: dla nieprawidłowego numeru (np. 0 lub 5) funkcja zadziała na zaworze 1.</td></tr>
+<tr><td class="n">846–865</td><td class="c">  if(valve_id==1){ port=GPIOI; pin=GPIO_PIN_0; }
+  else if(valve_id==2){ ... GPIO_PIN_1; }
+  else if(valve_id==3){ ... GPIO_PIN_2; }
+  else if(valve_id==4){ ... GPIO_PIN_3; }</td><td class="e">Mapowanie numeru zaworu na pin: 1→PI0, 2→PI1, 3→PI2, 4→PI3. Jeśli kiedyś przeniesiesz zawór na inny pin/port, zmieniasz tylko tutaj.</td></tr>
+<tr><td class="n">867–869</td><td class="c">  if(state==1){
+    HAL_GPIO_WritePin(port,pin,GPIO_PIN_RESET);
+  }</td><td class="e">Otwarcie: stan niski 0 V (przekaźnik aktywny stanem niskim).</td></tr>
+<tr><td class="n">870–873</td><td class="c">  else{
+    HAL_GPIO_WritePin(port,pin,GPIO_PIN_SET);
+  }</td><td class="e">Zamknięcie: stan wysoki 3,3 V.</td></tr>
+</table>
+
+<h3>7.8. <code>MX_USART6_UART_Init</code> – port szeregowy dla BLE (linie 938–970)</h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">938</td><td class="c">// USART6 na zlaczu Arduino: PC6 = D1 (TX), PC7 = D0 (RX). 9600 8N1.</td><td class="e">TX płytki (PC6) łączysz z RX modułu BLE, RX płytki (PC7) z TX modułu.</td></tr>
+<tr><td class="n">941–942</td><td class="c">    __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_USART6_CLK_ENABLE();</td><td class="e">Włączenie zegara portu C i samego układu USART6.</td></tr>
+<tr><td class="n">944–950</td><td class="c">    GPIO_InitStruct.Pin = GPIO_PIN_6 | GPIO_PIN_7;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF8_USART6;
+    HAL_GPIO_Init(GPIOC, &amp;GPIO_InitStruct);</td><td class="e">PC6 i PC7 w trybie <b>funkcji alternatywnej</b> – pinami steruje nie program, tylko układ USART6. <code>AF8</code> to numer funkcji alternatywnej przypisanej USART6 na tych pinach (z dokumentacji procesora). Podciąganie utrzymuje linię RX w stanie spoczynku (1), gdy moduł jest odłączony.</td></tr>
+<tr><td class="n">952</td><td class="c">    huart6.Instance = USART6;</td><td class="e">Który układ sprzętowy obsługuje ten uchwyt.</td></tr>
+<tr><td class="n">953</td><td class="c">    huart6.Init.BaudRate = 9600;</td><td class="e">Prędkość 9600 bit/s – domyślna dla modułów HM-10, JDY, HC-05. Musi być taka sama jak w module.</td></tr>
+<tr><td class="n">954–956</td><td class="c">    WordLength = UART_WORDLENGTH_8B; StopBits = 1; Parity = NONE;</td><td class="e">Format ramki „8N1”.</td></tr>
+<tr><td class="n">957</td><td class="c">    huart6.Init.Mode = UART_MODE_TX_RX;</td><td class="e">Nadawanie i odbiór.</td></tr>
+<tr><td class="n">958</td><td class="c">    huart6.Init.HwFlowCtl = UART_HWCONTROL_NONE;</td><td class="e">Bez sprzętowej kontroli przepływu (linie RTS/CTS nie są podłączone).</td></tr>
+<tr><td class="n">959–961</td><td class="c">    OverSampling = 16; OneBitSampling = DISABLE; AdvFeatureInit = NO_INIT;</td><td class="e">Standardowe próbkowanie (16 próbek na bit – większa odporność na zakłócenia), bez zaawansowanych funkcji (inwersja linii, zamiana TX/RX itp.).</td></tr>
+<tr><td class="n">962–965</td><td class="c">    if (HAL_UART_Init(&amp;huart6) != HAL_OK) { Error_Handler(); }</td><td class="e">Zapis konfiguracji do rejestrów. Przy błędzie – <code>Error_Handler()</code> (u Ciebie pusta funkcja, więc program idzie dalej).</td></tr>
+<tr><td class="n">968</td><td class="c">    HAL_NVIC_SetPriority(USART6_IRQn, 5, 0);</td><td class="e">Priorytet przerwania = 5. FreeRTOS wymaga, by przerwania mogące współpracować z systemem miały priorytet liczbowo ≥ <code>configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY</code> (5). Niższa liczba = ważniejsze przerwanie.</td></tr>
+<tr><td class="n">969</td><td class="c">    HAL_NVIC_EnableIRQ(USART6_IRQn);</td><td class="e">Włączenie przerwania w kontrolerze NVIC – od teraz procesor będzie wołał <code>USART6_IRQHandler</code> (rozdział 5).</td></tr>
+</table>
+
+<h3>7.9. <code>BLE_Send</code> – wysyłanie odpowiedzi (linie 972–988)</h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">975</td><td class="c">static void BLE_Send(const char *text)</td><td class="e">Wysyła napis do telefonu bez czekania na koniec transmisji – dlatego można ją wołać z przerwania.</td></tr>
+<tr><td class="n">977–980</td><td class="c">    if (huart6.gState != HAL_UART_STATE_READY) { return; }</td><td class="e"><code>gState</code> to stan nadajnika w HAL. Jeśli poprzednia odpowiedź jeszcze się wysyła, nowa jest porzucana (nie nadpisujemy bufora w trakcie wysyłki). Protokół zakłada, że aplikacja czeka na odpowiedź przed wysłaniem kolejnej komendy.</td></tr>
+<tr><td class="n">981</td><td class="c">    size_t len = strlen(text);</td><td class="e">Długość napisu (bez <code>'\0'</code>).</td></tr>
+<tr><td class="n">982–985</td><td class="c">    if (len &gt; sizeof(ble_tx_buf)) { len = sizeof(ble_tx_buf); }</td><td class="e">Ochrona przed wyjściem poza bufor – za długi napis jest obcinany do 128 bajtów.</td></tr>
+<tr><td class="n">986</td><td class="c">    memcpy(ble_tx_buf, text, len);</td><td class="e">Kopia do bufora nadawczego, który „przeżyje” całą wysyłkę.</td></tr>
+<tr><td class="n">987</td><td class="c">    HAL_UART_Transmit_IT(&amp;huart6, (uint8_t *)ble_tx_buf, (uint16_t)len);</td><td class="e">Start wysyłania w tle: HAL wysyła kolejne bajty w przerwaniach USART6. Funkcja wraca natychmiast.</td></tr>
+</table>
+
+<h3>7.10. <code>IsValidBottleName</code> – walidacja nazwy (linie 990–1006)</h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">990</td><td class="c">static uint8_t IsValidBottleName(const char *name)</td><td class="e">Zwraca 1, gdy nazwę można zapisać, 0 – gdy nie.</td></tr>
+<tr><td class="n">992–996</td><td class="c">    size_t len = strlen(name);
+    if (len == 0 || len &gt; BOTTLE_NAME_MAX) { return 0; }</td><td class="e">Nazwa nie może być pusta ani dłuższa niż 16 znaków (inaczej nie zmieściłaby się w tablicy i na ekranie).</td></tr>
+<tr><td class="n">997–1004</td><td class="c">    for (...) {
+        char ch = name[i];
+        if (ch &lt; 0x20 || ch &gt; 0x7E || ch == ',' || ch == '$' || ch == '#')
+            return 0;
+    }</td><td class="e">Każdy znak musi być drukowalnym znakiem ASCII (od spacji 0x20 do <code>~</code> 0x7E) – <b>bez polskich liter</b> (UTF-8 ma bajty &gt; 0x7E) i bez znaków sterujących. Zabronione są też <code>,</code> <code>$</code> <code>#</code>, bo mają specjalne znaczenie w protokole – nazwa z przecinkiem zepsułaby odpowiedź <code>$B,n,nazwa</code>.</td></tr>
+<tr><td class="n">1005</td><td class="c">    return 1;</td><td class="e">Nazwa poprawna.</td></tr>
+</table>
+
+<h3>7.11. <code>AppendBottleLine</code> – składanie linii odpowiedzi (linie 1008–1040)</h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">1010</td><td class="c">static size_t AppendBottleLine(size_t n, const char *prefix, uint8_t idx, uint8_t withVolume)</td><td class="e">Dopisuje do <code>ble_reply</code>, od pozycji <code>n</code>, linię opisującą butelkę o indeksie <code>idx</code> (0–3). Zwraca nową długość – dzięki temu można wywołać ją kilka razy pod rząd i skleić kilka linii (tak robi <code>GET</code>).</td></tr>
+<tr><td class="n">1012–1013</td><td class="c">    size_t len = strlen(prefix);
+    memcpy(&amp;ble_reply[n], prefix, len);   n += len;</td><td class="e">Dopisanie prefiksu, np. <code>"$B,"</code> albo <code>"$OK,"</code>.</td></tr>
+<tr><td class="n">1014</td><td class="c">    ble_reply[n++] = (char)('1' + idx);</td><td class="e">Numer butelki jako znak: indeks 0 → <code>'1'</code>, 3 → <code>'4'</code> (do kodu znaku <code>'1'</code> dodajemy indeks).</td></tr>
+<tr><td class="n">1015</td><td class="c">    ble_reply[n++] = ',';</td><td class="e">Separator.</td></tr>
+<tr><td class="n">1016–1017</td><td class="c">    len = strlen(bottleName[idx]);
+    memcpy(&amp;ble_reply[n], bottleName[idx], len);   n += len;</td><td class="e">Dopisanie nazwy napoju.</td></tr>
+<tr><td class="n">1019</td><td class="c">    if (withVolume)</td><td class="e">Ilość ml dopisujemy tylko w odpowiedzi na <code>SET</code> (w <code>GET</code> – nie).</td></tr>
+<tr><td class="n">1021–1023</td><td class="c">        char digits[5];
+        uint8_t count = 0;
+        uint16_t value = bottleVolume[idx];</td><td class="e">Ręczna zamiana liczby na tekst (bez ciężkiej funkcji <code>sprintf</code>). <code>digits</code> pomieści do 5 cyfr.</td></tr>
+<tr><td class="n">1024–1028</td><td class="c">        do {
+            digits[count++] = (char)('0' + value % 10);
+            value /= 10;
+        } while (value &gt; 0);</td><td class="e">Wyciąganie cyfr od końca: <code>% 10</code> daje ostatnią cyfrę, <code>/ 10</code> ją usuwa. Dla 700: '0', '0', '7'. Pętla <code>do…while</code> gwarantuje, że dla 0 powstanie cyfra „0”.</td></tr>
+<tr><td class="n">1030</td><td class="c">        ble_reply[n++] = ',';</td><td class="e">Przecinek przed ilością.</td></tr>
+<tr><td class="n">1031–1034</td><td class="c">        while (count &gt; 0) {
+            ble_reply[n++] = digits[--count];
+        }</td><td class="e">Przepisanie cyfr w odwrotnej kolejności – czyli we właściwej: „700”.</td></tr>
+<tr><td class="n">1037–1039</td><td class="c">    ble_reply[n++] = '\n';
+    ble_reply[n] = '\0';
+    return n;</td><td class="e">Znak nowej linii kończy wiadomość protokołu; <code>'\0'</code> kończy napis w C (potrzebne dla <code>strlen</code> w <code>BLE_Send</code>). Zwracamy pozycję <code>'\0'</code>, żeby następna linia go nadpisała.</td></tr>
+</table>
+
+<h3>7.12. <code>ParseVolume</code> – odczyt ilości z tekstu (linie 1042–1060)</h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">1043</td><td class="c">static int32_t ParseVolume(const char *text)</td><td class="e">Zamienia tekst np. <code>"700"</code> na liczbę 700. Przy błędzie zwraca -1 (dlatego typ ze znakiem).</td></tr>
+<tr><td class="n">1045–1049</td><td class="c">    if (len == 0 || len &gt; 4) { return -1; }</td><td class="e">Dopuszczalne 1–4 cyfry.</td></tr>
+<tr><td class="n">1050</td><td class="c">    int32_t value = 0;</td><td class="e">Akumulator wyniku.</td></tr>
+<tr><td class="n">1051–1058</td><td class="c">    for (...) {
+        if (text[i] &lt; '0' || text[i] &gt; '9') return -1;
+        value = value * 10 + (text[i] - '0');
+    }</td><td class="e">Każdy znak musi być cyfrą. <code>text[i] - '0'</code> zamienia znak cyfry na jej wartość (<code>'7' - '0' = 7</code>). Mnożenie przez 10 „przesuwa” dotychczasowy wynik o jedną pozycję dziesiętną.</td></tr>
+<tr><td class="n">1059</td><td class="c">    return (value &lt;= BOTTLE_VOLUME_MAX) ? value : -1;</td><td class="e">Operator warunkowy: jeśli ≤ 9999 – zwróć wartość, w przeciwnym razie -1. (Przy 4 cyfrach zawsze jest ≤ 9999, ale sprawdzenie chroni na wypadek zmiany limitu.)</td></tr>
+</table>
+
+<h3>7.13. <code>BLE_HandleLine</code> – obsługa wiadomości tekstowych (linie 1062–1149)</h3>
+<p>Wywoływana z przerwania, gdy odebrano pełną wiadomość <code>$...\n</code>. W <code>ble_line</code> jest już sama treść, np. <code>SET,2,Wodka,700</code>.</p>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">1062–1067</td><td class="c">// Wiadomosci od aplikacji ... </td><td class="e">Komentarz-specyfikacja protokołu (zebrana w rozdziale 13).</td></tr>
+<tr><td class="n">1070–1074</td><td class="c">    if (ble_line_overflow) {
+        BLE_Send("$ERR,LEN\n");
+        return;
+    }</td><td class="e">Wiadomość była za długa (&gt; 40 znaków) – zgłaszamy błąd i nic nie zmieniamy.</td></tr>
+<tr><td class="n">1076</td><td class="c">    if (strcmp(ble_line, "GET") == 0)</td><td class="e"><code>strcmp</code> zwraca 0, gdy napisy są identyczne. Komenda <code>$GET</code> = „podaj wszystkie butelki”.</td></tr>
+<tr><td class="n">1078–1082</td><td class="c">        size_t n = 0;
+        for (uint8_t i = 0; i &lt; BOTTLE_COUNT; i++) {
+            n = AppendBottleLine(n, "$B,", i, 0);
+        }</td><td class="e">Sklejenie czterech linii <code>$B,1,Nazwa\n</code> … <code>$B,4,Nazwa\n</code> w jednym buforze.</td></tr>
+<tr><td class="n">1083</td><td class="c">        memcpy(&amp;ble_reply[n], "$END\n", 6);</td><td class="e">Znacznik końca listy. 6 bajtów = 5 znaków + <code>'\0'</code>.</td></tr>
+<tr><td class="n">1084–1085</td><td class="c">        BLE_Send(ble_reply);
+        return;</td><td class="e">Wysłanie całości jednym wywołaniem.</td></tr>
+<tr><td class="n">1088</td><td class="c">    if (strncmp(ble_line, "GET,", 4) == 0)</td><td class="e"><code>strncmp</code> porównuje tylko 4 pierwsze znaki – wiadomość zaczyna się od <code>GET,</code>, czyli pytanie o jedną butelkę, np. <code>GET,3</code>.</td></tr>
+<tr><td class="n">1090</td><td class="c">        char id = ble_line[4];</td><td class="e">Znak tuż po przecinku – numer butelki.</td></tr>
+<tr><td class="n">1091–1095</td><td class="c">        if (id &lt; '1' || id &gt; ('0' + BOTTLE_COUNT) || ble_line[5] != '\0') {
+            BLE_Send("$ERR,ID\n"); return;
+        }</td><td class="e">Numer musi być znakiem <code>'1'</code>–<code>'4'</code> i być ostatnim znakiem wiadomości (np. <code>GET,12</code> jest błędem).</td></tr>
+<tr><td class="n">1096–1098</td><td class="c">        AppendBottleLine(0, "$B,", (uint8_t)(id - '1'), 0);
+        BLE_Send(ble_reply);
+        return;</td><td class="e"><code>id - '1'</code> zamienia znak na indeks 0–3. Odpowiedź np. <code>$B,3,Rum\n</code>.</td></tr>
+<tr><td class="n">1101–1105</td><td class="c">    if (strncmp(ble_line, "SET,", 4) != 0) {
+        BLE_Send("$ERR,CMD\n"); return;
+    }</td><td class="e">Jeśli to nie GET i nie SET – nieznana komenda.</td></tr>
+<tr><td class="n">1107–1108</td><td class="c">    char id = ble_line[4];
+    char sep = ble_line[5];</td><td class="e">Numer butelki i znak po nim (powinien być przecinek albo koniec napisu).</td></tr>
+<tr><td class="n">1109–1113</td><td class="c">    if (id &lt; '1' || id &gt; ('0' + BOTTLE_COUNT) || (sep != ',' &amp;&amp; sep != '\0')) {
+        BLE_Send("$ERR,ID\n"); return;
+    }</td><td class="e">Walidacja numeru i separatora.</td></tr>
+<tr><td class="n">1115</td><td class="c">    char *name = (sep == ',') ? &amp;ble_line[6] : "";</td><td class="e">Wskaźnik na początek nazwy (znak 6). Gdy po numerze nic nie ma (<code>SET,2</code>), nazwa jest pusta – i zaraz zostanie odrzucona jako niepoprawna.</td></tr>
+<tr><td class="n">1118</td><td class="c">    int32_t volume = -1;</td><td class="e">-1 oznacza „ilość nie podana – nie zmieniaj”.</td></tr>
+<tr><td class="n">1119</td><td class="c">    char *comma = strchr(name, ',');</td><td class="e">Szukamy drugiego przecinka w nazwie, np. w <code>Wodka,700</code>. <code>strchr</code> zwraca wskaźnik na znak albo <code>NULL</code>.</td></tr>
+<tr><td class="n">1120–1129</td><td class="c">    if (comma != NULL) {
+        *comma = '\0';
+        volume = ParseVolume(comma + 1);
+        if (volume &lt; 0) { BLE_Send("$ERR,VOL\n"); return; }
+    }</td><td class="e">Wstawienie <code>'\0'</code> w miejsce przecinka „przecina” napis na dwa: <code>name</code> = „Wodka”, a <code>comma + 1</code> = „700”. Niepoprawna ilość = błąd <code>VOL</code>.</td></tr>
+<tr><td class="n">1131–1135</td><td class="c">    if (!IsValidBottleName(name)) {
+        BLE_Send("$ERR,NAME\n"); return;
+    }</td><td class="e">Walidacja nazwy (rozdział 7.10).</td></tr>
+<tr><td class="n">1137</td><td class="c">    uint8_t idx = (uint8_t)(id - '1');</td><td class="e">Indeks tablicy 0–3.</td></tr>
+<tr><td class="n">1138</td><td class="c">    strcpy(bottleName[idx], name);</td><td class="e">Zapis nowej nazwy. Bezpieczne, bo długość została już sprawdzona (≤ 16).</td></tr>
+<tr><td class="n">1139–1142</td><td class="c">    if (volume &gt;= 0) {
+        bottleVolume[idx] = (uint16_t)volume;
+    }</td><td class="e">Ilość zmieniamy tylko, gdy została podana.</td></tr>
+<tr><td class="n">1143</td><td class="c">    bottleNamesVersion++;</td><td class="e">Sygnał dla ekranu 2: „odśwież napisy”.</td></tr>
+<tr><td class="n">1144</td><td class="c">    bottleNamesChangedTick = HAL_GetTick();</td><td class="e">Zapamiętanie czasu zmiany – od niego liczą się 2 s do zapisu.</td></tr>
+<tr><td class="n">1145</td><td class="c">    bottleNamesDirty = 1;</td><td class="e">Sygnał dla <code>StartDefaultTask</code>: „trzeba zapisać do flash”. Samego zapisu nie robimy w przerwaniu, bo kasowanie sektora zatrzymuje procesor nawet na 1–2 s.</td></tr>
+<tr><td class="n">1147–1148</td><td class="c">    AppendBottleLine(0, "$OK,", idx, 1);
+    BLE_Send(ble_reply);</td><td class="e">Potwierdzenie z aktualnym stanem, np. <code>$OK,2,Wodka,700\n</code>.</td></tr>
+</table>
+
+<h3>7.14. <code>HAL_UART_RxCpltCallback</code> – analiza każdego bajtu z BLE (linie 1151–1236)</h3>
+<p>To „serce” odbioru. Działa jak prosta <b>maszyna stanów</b>: o tym, co zrobić z bajtem, decydują flagi <code>ble_line_active</code> i <code>ble_prefix_seen</code>.</p>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">1151–1160</td><td class="c">// Komendy z aplikacji: '#' + jeden znak ...</td><td class="e">Opis protokołu. Ważne: znaki bez prefiksu <code>#</code>/<code>$</code> są ignorowane, bo moduł HM-10 sam wysyła np. <code>OK+CONN</code> przy połączeniu – bez prefiksu cyfry/litery z takich tekstów mogłyby uruchamiać zawory.</td></tr>
+<tr><td class="n">1161</td><td class="c">void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)</td><td class="e">Nadpisuje „słabą” funkcję z HAL. Wywoływana z przerwania po odebraniu 1 bajtu (bo tyle zamówiono w <code>HAL_UART_Receive_IT</code>).</td></tr>
+<tr><td class="n">1163</td><td class="c">    if (huart-&gt;Instance == USART6)</td><td class="e">Ten sam callback obsługuje wszystkie UART-y, więc sprawdzamy, czy to nasz.</td></tr>
+<tr><td class="n">1165</td><td class="c">        uint8_t c = ble_rx_data;</td><td class="e">Kopia odebranego bajtu.</td></tr>
+<tr><td class="n">1167–1171</td><td class="c">        if (c == '#') {
+            ble_line_active = 0;
+            ble_prefix_seen = 1;
+        }</td><td class="e"><code>#</code> = następny bajt jest komendą. Przerywa ewentualne zbieranie wiadomości <code>$</code> – dzięki temu <code>#S</code> (STOP) zadziała zawsze, nawet w środku uszkodzonej wiadomości.</td></tr>
+<tr><td class="n">1172–1178</td><td class="c">        else if (c == '$') {
+            ble_prefix_seen = 0;
+            ble_line_active = 1;
+            ble_line_len = 0;
+            ble_line_overflow = 0;
+        }</td><td class="e"><code>$</code> = początek wiadomości tekstowej. Czyścimy bufor i flagę przepełnienia.</td></tr>
+<tr><td class="n">1179</td><td class="c">        else if (ble_line_active)</td><td class="e">Jesteśmy w środku wiadomości <code>$</code>.</td></tr>
+<tr><td class="n">1181–1186</td><td class="c">            if (c == '\n') {
+                ble_line_active = 0;
+                ble_line[ble_line_len] = '\0';
+                BLE_HandleLine();
+            }</td><td class="e">Koniec wiadomości: zamykamy napis znakiem <code>'\0'</code> i przekazujemy do <code>BLE_HandleLine</code> (rozdział 7.13).</td></tr>
+<tr><td class="n">1187</td><td class="c">            else if (c != '\r')</td><td class="e">Znak <code>\r</code> jest pomijany – niektóre terminale wysyłają koniec linii jako <code>\r\n</code>.</td></tr>
+<tr><td class="n">1189–1196</td><td class="c">                if (ble_line_len &lt; BLE_LINE_MAX) {
+                    ble_line[ble_line_len++] = (char)c;
+                } else {
+                    ble_line_overflow = 1;
+                }</td><td class="e">Dopisanie znaku do bufora, a gdy jest pełny – zaznaczenie przepełnienia (bez pisania poza tablicę).</td></tr>
+<tr><td class="n">1199–1201</td><td class="c">        else if (ble_prefix_seen) {
+            ble_prefix_seen = 0;</td><td class="e">Poprzedni bajt był <code>#</code> – ten jest komendą. Kasujemy flagę, bo komenda ma dokładnie jeden znak.</td></tr>
+<tr><td class="n">1203–1213</td><td class="c">            switch (c) {
+                case '1': ... case '4':
+                case 'A': case 'B': case 'C':
+                    ble_command = c;
+                    break;</td><td class="e">Komendy nalewania z butelki 1–4 i przepisów A–C są tylko <b>zapamiętywane</b>. Wykona je <code>Screen2View::handleTickEvent</code> w wątku GUI, z tymi samymi licznikami czasu co przyciski na ekranie.</td></tr>
+<tr><td class="n">1214–1218</td><td class="c">                case 'a': case 'b': case 'c':
+                    ble_command = c - 'a' + 'A';
+                    break;</td><td class="e">Małe litery zamieniane na wielkie (<code>'b' - 'a' + 'A' = 'B'</code>) – aplikacja może wysłać dowolną wielkość liter.</td></tr>
+<tr><td class="n">1219–1228</td><td class="c">                case '0': case 's': case 'S':
+                    SetValveState(1, 0); ... SetValveState(4, 0);
+                    ble_command = 'S';
+                    break;</td><td class="e"><b>STOP</b> działa natychmiast, prosto z przerwania – zamyka wszystkie zawory, nawet jeśli otwarty jest ekran 1. Dodatkowo zapamiętuje <code>'S'</code>, żeby ekran 2 wyzerował też swój stan (<code>stopAll</code>).</td></tr>
+<tr><td class="n">1229–1231</td><td class="c">                default: break;</td><td class="e">Nieznany znak po <code>#</code> – ignorowany.</td></tr>
+<tr><td class="n">1234</td><td class="c">        HAL_UART_Receive_IT(&amp;huart6, &amp;ble_rx_data, 1);</td><td class="e">Ponowne „uzbrojenie” odbioru kolejnego bajtu. Bez tej linii odebrano by tylko pierwszy znak.</td></tr>
+</table>
+
+<h3>7.15. <code>HAL_UART_ErrorCallback</code> – odzyskiwanie po błędzie (linie 1238–1247)</h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">1238</td><td class="c">// Np. przepelnienie (overrun) przerywa odbior ...</td><td class="e">Błąd typu <i>overrun</i> (nowy bajt przyszedł, zanim odczytano poprzedni), błąd ramki lub szum przerywa odbiór w HAL.</td></tr>
+<tr><td class="n">1239</td><td class="c">void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)</td><td class="e">Nadpisanie słabej funkcji HAL, wołanej przy błędzie UART.</td></tr>
+<tr><td class="n">1243–1244</td><td class="c">        ble_prefix_seen = 0;
+        ble_line_active = 0;</td><td class="e">Reset maszyny stanów – porzucamy przerwaną wiadomość, bo mogła zostać uszkodzona.</td></tr>
+<tr><td class="n">1245</td><td class="c">        HAL_UART_Receive_IT(&amp;huart6, &amp;ble_rx_data, 1);</td><td class="e">Ponowny start odbioru – bez tego BLE „zamilkłby” na zawsze po pierwszym błędzie.</td></tr>
+</table>
+
+<h3>7.16. Gettery dla GUI (linie 1249–1270)</h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">1249</td><td class="c">const char *GetBottleName(uint8_t bottle_id)</td><td class="e">Zwraca nazwę napoju w butelce 1–4. <code>const</code> – GUI może czytać, ale nie zmieniać.</td></tr>
+<tr><td class="n">1251–1254</td><td class="c">    if (bottle_id &lt; 1 || bottle_id &gt; BOTTLE_COUNT) { return ""; }</td><td class="e">Ochrona przed złym numerem – pusty napis zamiast czytania poza tablicą.</td></tr>
+<tr><td class="n">1255</td><td class="c">    return bottleName[bottle_id - 1];</td><td class="e">Numery butelek są od 1, indeksy tablicy od 0.</td></tr>
+<tr><td class="n">1258–1265</td><td class="c">uint16_t GetBottleVolume(uint8_t bottle_id) { ... return bottleVolume[bottle_id - 1]; }</td><td class="e">Analogicznie – ilość ml. Dla złego numeru 0.</td></tr>
+<tr><td class="n">1267–1270</td><td class="c">uint8_t GetBottleNamesVersion(void) { return bottleNamesVersion; }</td><td class="e">Licznik zmian dla ekranu (rozdział 7.3). Te trzy funkcje są wołane z <code>Screen2View.cpp</code> i zadeklarowane w <code>Screen2View.hpp</code>.</td></tr>
+</table>
+
+<h3>7.17. Odczyt z flash: <code>NamesSlot</code>, <code>IsNamesSlotErased</code>, <code>BottleNames_Load</code> (linie 1272–1320)</h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">1272–1275</td><td class="c">static const BottleNamesRecord *NamesSlot(uint32_t slot)
+{
+    return (const BottleNamesRecord *)(NAMES_FLASH_ADDR + slot * sizeof(BottleNamesRecord));
+}</td><td class="e">Zamienia numer slotu na wskaźnik do miejsca we flash: adres początku + numer × 80 B. Flash jest zmapowany w przestrzeni adresowej, więc można go czytać zwykłym wskaźnikiem, jak RAM.</td></tr>
+<tr><td class="n">1277</td><td class="c">static uint8_t IsNamesSlotErased(uint32_t slot)</td><td class="e">Sprawdza, czy slot jest pusty (skasowany).</td></tr>
+<tr><td class="n">1279</td><td class="c">    const uint32_t *word = (const uint32_t *)NamesSlot(slot);</td><td class="e">Patrzymy na rekord jako tablicę 20 słów 32-bitowych.</td></tr>
+<tr><td class="n">1280–1286</td><td class="c">    for (i &lt; sizeof(BottleNamesRecord) / 4) {
+        if (word[i] != 0xFFFFFFFFu) return 0;
+    }
+    return 1;</td><td class="e">Skasowany flash ma same jedynki (<code>0xFFFFFFFF</code>). Jeśli choć jedno słowo jest inne, slot był już zapisywany.</td></tr>
+<tr><td class="n">1291</td><td class="c">static void BottleNames_Load(void)</td><td class="e">Szuka ostatniego ważnego rekordu i kopiuje go do RAM. Wołana raz w <code>main()</code>.</td></tr>
+<tr><td class="n">1293–1294</td><td class="c">    const BottleNamesRecord *last = NULL;
+    uint32_t slot = 0;</td><td class="e"><code>last</code> – ostatni znaleziony ważny rekord (na razie brak).</td></tr>
+<tr><td class="n">1296–1307</td><td class="c">    for (; slot &lt; NAMES_SLOT_COUNT; slot++) {
+        const BottleNamesRecord *rec = NamesSlot(slot);
+        if (rec-&gt;magic == NAMES_MAGIC) { last = rec; }
+        else if (IsNamesSlotErased(slot)) { break; }
+    }</td><td class="e">Przechodzimy sloty od początku. Rekord z poprawnym podpisem zapamiętujemy (późniejszy nadpisze wcześniejszy, więc na końcu <code>last</code> = najnowszy). Pierwszy pusty slot kończy szukanie – dalej nic nie ma. Slot zapisany, ale bez podpisu (przerwany zapis) jest po prostu pomijany.</td></tr>
+<tr><td class="n">1308</td><td class="c">    namesNextSlot = slot;</td><td class="e">Miejsce, gdzie trafi następny zapis (pierwszy pusty slot lub koniec sektora).</td></tr>
+<tr><td class="n">1310–1319</td><td class="c">    if (last != NULL) {
+        for (i &lt; BOTTLE_COUNT) {
+            memcpy(bottleName[i], last-&gt;names[i], BOTTLE_NAME_MAX);
+            bottleName[i][BOTTLE_NAME_MAX] = '\0';
+            bottleVolume[i] = (last-&gt;volume[i] &lt;= BOTTLE_VOLUME_MAX) ? last-&gt;volume[i] : 0;
+        }
+        bottleNamesVersion++;
+    }</td><td class="e">Kopiowanie danych z flash do tablic w RAM. Ostatni znak nazwy jest wymuszany na <code>'\0'</code> (nawet gdyby dane były uszkodzone, napis będzie zakończony). Ilość spoza zakresu zamieniana na 0. Zwiększenie wersji powoduje, że ekran pokaże wczytane nazwy. Jeśli nie ma żadnego rekordu – zostają domyślne „null”.</td></tr>
+</table>
+
+<h3>7.18. Zapis do flash: <code>BottleNames_EraseSector</code>, <code>BottleNames_Save</code> (linie 1322–1379)</h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">1322</td><td class="c">static HAL_StatusTypeDef BottleNames_EraseSector(void)</td><td class="e">Kasuje cały sektor 7. Zwraca <code>HAL_OK</code> lub kod błędu.</td></tr>
+<tr><td class="n">1324–1325</td><td class="c">    FLASH_EraseInitTypeDef erase = {0};
+    uint32_t sectorError = 0;</td><td class="e">Opis operacji kasowania i zmienna, w którą HAL wpisze numer sektora, gdyby wystąpił błąd.</td></tr>
+<tr><td class="n">1327–1330</td><td class="c">    erase.TypeErase = FLASH_TYPEERASE_SECTORS;
+    erase.Sector = NAMES_FLASH_SECTOR;
+    erase.NbSectors = 1;
+    erase.VoltageRange = FLASH_VOLTAGE_RANGE_3;</td><td class="e">Kasowanie sektorowe, sektor 7, jeden sektor. <code>VOLTAGE_RANGE_3</code> = zasilanie 2,7–3,6 V (płytka ma 3,3 V) – pozwala kasować/programować po 32 bity.</td></tr>
+<tr><td class="n">1332</td><td class="c">    HAL_StatusTypeDef status = HAL_FLASHEx_Erase(&amp;erase, &amp;sectorError);</td><td class="e">Właściwe kasowanie. Trwa ok. 1–2 s – w tym czasie procesor nie może czytać flasha (w tym własnego programu), więc wszystko „staje”, także ekran.</td></tr>
+<tr><td class="n">1334</td><td class="c">    SCB_InvalidateDCache_by_Addr((uint32_t *)NAMES_FLASH_ADDR, NAMES_FLASH_SIZE);</td><td class="e">Unieważnienie pamięci podręcznej D-Cache dla tego obszaru – inaczej procesor mógłby dalej widzieć stare dane sprzed kasowania.</td></tr>
+<tr><td class="n">1335–1336</td><td class="c">    namesNextSlot = 0;
+    return status;</td><td class="e">Po skasowaniu zapis zaczyna się od pierwszego slotu.</td></tr>
+<tr><td class="n">1341</td><td class="c">static void BottleNames_Save(void)</td><td class="e">Dopisuje bieżące nazwy/ilości jako nowy rekord. Wołana tylko z <code>StartDefaultTask</code>.</td></tr>
+<tr><td class="n">1343–1344</td><td class="c">    BottleNamesRecord rec;
+    memset(&amp;rec, 0, sizeof(rec));</td><td class="e">Rekord w RAM, wyzerowany (także bajty po <code>'\0'</code> w nazwach i ewentualne wypełnienie struktury).</td></tr>
+<tr><td class="n">1346–1347</td><td class="c">    uint32_t primask = __get_PRIMASK();
+    __disable_irq();</td><td class="e">Początek <b>sekcji krytycznej</b>: zapamiętujemy, czy przerwania były włączone, i je wyłączamy. Teraz przerwanie BLE nie może zmienić nazw w połowie kopiowania.</td></tr>
+<tr><td class="n">1348–1349</td><td class="c">    memcpy(rec.names, bottleName, sizeof(rec.names));
+    memcpy(rec.volume, bottleVolume, sizeof(rec.volume));</td><td class="e">Spójna kopia danych do rekordu.</td></tr>
+<tr><td class="n">1350</td><td class="c">    bottleNamesDirty = 0;</td><td class="e">Kasujemy flagę wewnątrz sekcji krytycznej – jeśli zaraz po niej przyjdzie nowy <code>$SET</code>, ustawi flagę ponownie i nic nie zginie.</td></tr>
+<tr><td class="n">1351</td><td class="c">    __set_PRIMASK(primask);</td><td class="e">Koniec sekcji krytycznej – przywrócenie poprzedniego stanu przerwań.</td></tr>
+<tr><td class="n">1352</td><td class="c">    rec.magic = NAMES_MAGIC;</td><td class="e">Podpis ważnego rekordu.</td></tr>
+<tr><td class="n">1354</td><td class="c">    HAL_FLASH_Unlock();</td><td class="e">Flash jest domyślnie zablokowany przed zapisem; odblokowanie przez wpisanie kluczy do rejestru.</td></tr>
+<tr><td class="n">1355</td><td class="c">    __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_EOP | FLASH_FLAG_ALL_ERRORS);</td><td class="e">Czyszczenie starych flag (koniec operacji, błędy) – pozostała flaga błędu zablokowałaby nowe programowanie.</td></tr>
+<tr><td class="n">1357–1364</td><td class="c">    if (namesNextSlot &gt;= NAMES_SLOT_COUNT || !IsNamesSlotErased(namesNextSlot)) {
+        if (BottleNames_EraseSector() != HAL_OK) {
+            HAL_FLASH_Lock();
+            return;
+        }
+    }</td><td class="e">Kasujemy sektor, gdy jest pełny albo gdy następny slot z jakiegoś powodu nie jest pusty (np. przerwany wcześniej zapis). Jeśli kasowanie się nie uda – blokujemy flash i rezygnujemy (dane zostają w RAM).</td></tr>
+<tr><td class="n">1366</td><td class="c">    uint32_t addr = (uint32_t)NamesSlot(namesNextSlot);</td><td class="e">Adres docelowy rekordu.</td></tr>
+<tr><td class="n">1367</td><td class="c">    const uint32_t *word = (const uint32_t *)&amp;rec;</td><td class="e">Rekord jako 20 słów 32-bitowych.</td></tr>
+<tr><td class="n">1368–1374</td><td class="c">    for (i &lt; sizeof(rec) / 4) {
+        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, addr + i * 4, word[i]) != HAL_OK)
+            break;
+    }</td><td class="e">Programowanie słowo po słowie, od początku – czyli <code>magic</code> (ostatnie pole) trafia do flash na samym końcu. Przy błędzie przerywamy; rekord bez podpisu zostanie zignorowany.</td></tr>
+<tr><td class="n">1375</td><td class="c">    SCB_InvalidateDCache_by_Addr((uint32_t *)(addr &amp; ~31u), sizeof(rec) + 32);</td><td class="e">Unieważnienie cache dla zapisanego obszaru. Linie cache mają 32 B, więc adres jest wyrównywany w dół do 32 (<code>&amp; ~31</code>), a długość powiększona o 32, by objąć cały rekord.</td></tr>
+<tr><td class="n">1376</td><td class="c">    HAL_FLASH_Lock();</td><td class="e">Ponowna blokada – ochrona przed przypadkowym zapisem.</td></tr>
+<tr><td class="n">1378</td><td class="c">    namesNextSlot++;</td><td class="e">Następny zapis trafi do kolejnego slotu.</td></tr>
+</table>
+
+<h3>7.19. <code>BLE_GetCommand</code> i <code>StartDefaultTask</code> (linie 1381–1425)</h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">1381</td><td class="c">uint8_t BLE_GetCommand(void)</td><td class="e">Wołana przez GUI co klatkę: zwraca komendę z BLE i ją kasuje, więc każda komenda jest wykonana dokładnie raz.</td></tr>
+<tr><td class="n">1383–1384</td><td class="c">    uint32_t primask = __get_PRIMASK();
+    __disable_irq();</td><td class="e">Sekcja krytyczna – żeby przerwanie nie wpisało nowej komendy między odczytem a wyzerowaniem (wtedy by zginęła).</td></tr>
+<tr><td class="n">1385–1386</td><td class="c">    uint8_t cmd = ble_command;
+    ble_command = 0;</td><td class="e">Odczyt i wyczyszczenie „skrzynki”.</td></tr>
+<tr><td class="n">1387–1388</td><td class="c">    __set_PRIMASK(primask);
+    return cmd;</td><td class="e">Przywrócenie przerwań i zwrot komendy (0 = brak).</td></tr>
+<tr><td class="n">1400</td><td class="c">void StartDefaultTask(void *argument)</td><td class="e">Funkcja wątku <code>defaultTask</code> utworzonego w <code>main()</code> (szkielet z CubeMX, treść Twoja).</td></tr>
+<tr><td class="n">1404</td><td class="c">  osDelay(500);</td><td class="e">Pół sekundy na ustabilizowanie HX711 po włączeniu zasilania.</td></tr>
+<tr><td class="n">1408</td><td class="c">  hx711_offset = HX711_ReadAverage(20);</td><td class="e"><b>Tara</b>: średnia z 20 pomiarów pustej wagi = punkt zerowy. Przy starcie nic nie może leżeć na czujniku.</td></tr>
+<tr><td class="n">1411</td><td class="c">  for(;;)</td><td class="e">Nieskończona pętla wątku.</td></tr>
+<tr><td class="n">1413</td><td class="c">    waga_surowa = HX711_ReadAverage(10);</td><td class="e">Średnia z 10 pomiarów (ok. 1 s przy 10 Hz).</td></tr>
+<tr><td class="n">1415</td><td class="c">    waga_gramy = (int32_t)((waga_surowa - hx711_offset) / HX711_SCALE);</td><td class="e">Przeliczenie na gramy: (odczyt − tara) / skala. Dzielenie przez <code>float</code> daje wynik zmiennoprzecinkowy, rzutowanie <code>(int32_t)</code> obcina część ułamkową. Wynik czyta <code>Model::tick()</code>.</td></tr>
+<tr><td class="n">1418–1421</td><td class="c">    if (bottleNamesDirty &amp;&amp; (HAL_GetTick() - bottleNamesChangedTick) &gt;= NAMES_SAVE_DELAY_MS) {
+        BottleNames_Save();
+    }</td><td class="e">Opóźniony zapis: gdy są niezapisane zmiany i od ostatniej minęły ≥ 2 s. Odejmowanie czasów w <code>uint32_t</code> działa poprawnie nawet po przepełnieniu licznika ms (po ~49 dniach).</td></tr>
+<tr><td class="n">1422</td><td class="c">    osDelay(100);</td><td class="e">Przerwa 100 ms przed kolejnym pomiarem.</td></tr>
+</table>
+
+<h3>7.20. Kod z szablonu płytki w sekcjach USER CODE (dla porządku)</h3>
+<div class="tpl">
+<p>Te fragmenty pochodzą z szablonu TouchGFX dla STM32F746G-DISCO. Nie trzeba ich zmieniać, ale dobrze wiedzieć, po co są:</p>
+<ul>
+  <li><b><code>MX_I2C3_Init</code>, linia 511</b> – <code>HAL_Delay(100)</code>: opóźnienie przed startem I2C3 (kontroler dotyku FT5336), naprawia problem z inicjalizacją na niektórych egzemplarzach płytek.</li>
+  <li><b><code>MX_QUADSPI_Init</code>, linie 642–645</b> – odczyt identyfikatora producenta zewnętrznego flasha QSPI (<code>GetManufacturerId</code>) i włączenie trybu <i>memory-mapped</i> (<code>EnableMemoryMappedMode</code>): od tej chwili flash QSPI pod adresem <code>0x90000000</code> jest czytany jak zwykła pamięć – tam TouchGFX trzyma obrazy i czcionki. Liczba cykli „dummy” zależy od producenta kości (Winbond W25Q128J – 6, Micron N25Q128A – 10). Na końcu przerwanie QSPI jest wyłączane, bo nie jest potrzebne.</li>
+  <li><b><code>MX_FMC_Init</code>, linie 693–746</b> – sekwencja startowa SDRAM wymagana przez specyfikację pamięci: włączenie zegara, 1 ms przerwy, <i>Precharge All</i>, 8 × <i>Auto Refresh</i>, zapis rejestru trybu (burst 1, CAS 3), ustawienie częstotliwości odświeżania (<code>REFRESH_COUNT = 1835</code>). SDRAM pod <code>0xC0000000</code> przechowuje bufor obrazu ekranu (<code>pLayerCfg.FBStartAdress</code>). Ostatnia linia (<code>FMC_Bank1-&gt;BTCR[0] = 0x000030D2</code>) wyłącza spekulatywny dostęp do banku 1 FMC, żeby nie marnować przepustowości magistrali.</li>
+  <li><b><code>GetManufacturerId</code>, <code>EnableMemoryMappedMode</code> (linie 877–936)</b> – implementacje dwóch powyższych funkcji QSPI.</li>
+</ul>
+</div>
+
+<!-- ===================================================== 8. MODEL -->
+<h2>8. Model: <span class="file">Model.hpp</span> <span class="file">Model.cpp</span> <span class="file">ModelListener.hpp</span></h2>
+<p>Model w TouchGFX istnieje przez cały czas działania programu (niezależnie od tego, który ekran jest otwarty). Framework woła <code>Model::tick()</code> raz na klatkę. <b>ModelListener</b> to interfejs, który implementują Presentery – dzięki niemu Model może „powiadomić” aktualny ekran.</p>
+
+<h3>8.1. <code>gui/include/gui/model/Model.hpp</code></h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">15</td><td class="c">    void setValve(bool state);</td><td class="e">Dopisana deklaracja metody, którą Presenter ekranu 1 otwiera/zamyka zawór. Reszta pliku to szkielet TouchGFX (<code>bind</code>, <code>tick</code>, wskaźnik <code>modelListener</code>).</td></tr>
+</table>
+
+<h3>8.2. <code>gui/src/model/Model.cpp</code></h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">3</td><td class="c">#include &lt;cstdint&gt;</td><td class="e">Typy <code>int32_t</code>, <code>uint8_t</code> w C++.</td></tr>
+<tr><td class="n">5</td><td class="c">extern "C" int32_t waga_gramy;</td><td class="e">„Ta zmienna istnieje w kodzie C” – to <code>waga_gramy</code> z <code>main.c</code> (linia 204). Model czyta ją bezpośrednio.</td></tr>
+<tr><td class="n">7–10</td><td class="c">extern "C" {
+    #include "main.h"
+    void SetValveState(uint8_t valve_id, uint8_t state);
+}</td><td class="e">Dołączenie nagłówka C i deklaracja funkcji zaworu z linkowaniem C. (Komentarz „zaraz napiszemy” jest nieaktualny – funkcja już istnieje.) <code>main.h</code> i tak zawiera tę deklarację, więc druga linia jest nadmiarowa, ale nieszkodliwa.</td></tr>
+<tr><td class="n">12–14</td><td class="c">void Model::setValve(bool state) {
+    SetValveState(1, state ? 1 : 0);
+}</td><td class="e">Zamienia <code>true/false</code> na 1/0 i steruje <b>zaworem nr 1</b>. Wywoływana przez <code>Screen1Presenter::startPouring/stopPouring</code>.</td></tr>
+<tr><td class="n">16–19</td><td class="c">Model::Model() : modelListener(0) { }</td><td class="e">Szkielet: konstruktor zeruje wskaźnik słuchacza.</td></tr>
+<tr><td class="n">21</td><td class="c">void Model::tick()</td><td class="e">Wołana przez TouchGFX co klatkę (ok. 60 Hz).</td></tr>
+<tr><td class="n">23</td><td class="c">    static int counter = 0;</td><td class="e">Zmienna lokalna <code>static</code> – zachowuje wartość między wywołaniami (licznik klatek).</td></tr>
+<tr><td class="n">24</td><td class="c">    counter++;</td><td class="e">Kolejna klatka.</td></tr>
+<tr><td class="n">25–27</td><td class="c">    if (counter % 6 == 0) {
+        modelListener-&gt;UpdateWeight(waga_gramy);
+    }</td><td class="e">Co 6. klatkę (≈10 razy na sekundę) przekazuje wagę do aktualnego Presentera. Na ekranie 1 <code>Screen1Presenter</code> pokaże ją na wyświetlaczu; na ekranie 2 wywoła się pusta wersja z <code>ModelListener</code> (nic się nie stanie).</td></tr>
+</table>
+
+<h3>8.3. <code>gui/include/gui/model/ModelListener.hpp</code></h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">5</td><td class="c">#include &lt;cstdint&gt;</td><td class="e">Dla typu <code>int32_t</code>.</td></tr>
+<tr><td class="n">19</td><td class="c">    virtual void UpdateWeight(int32_t weight) {}</td><td class="e">Dopisana metoda „powiadomienia”. <code>virtual</code> z pustym ciałem = domyślnie nic nie robi; Presenter, który chce reagować (ekran 1), ją nadpisuje. Dzięki temu Model nie musi wiedzieć, który ekran jest aktywny.</td></tr>
+</table>
+
+<!-- ===================================================== 9. SCREEN1 -->
+<h2>9. Ekran 1 (waga): <span class="file">Screen1Presenter.*</span> <span class="file">Screen1View.*</span></h2>
+<p>Ekran 1 pokazuje aktualną wagę i ma przyciski <b>btnPour</b> (nalej), <b>btnStop</b> oraz <b>goToMenu</b> (przejście do ekranu 2). Powiązania przycisków z funkcjami ustawiono w TouchGFX Designer (zakładka <i>Interactions</i>) – wygenerowany kod w <code>Screen1ViewBase.cpp</code> woła <code>pourButtonClicked()</code> i <code>stopButtonClicked()</code>.</p>
+
+<h3>9.1. <code>Screen1Presenter.hpp</code></h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">28</td><td class="c">    virtual void UpdateWeight(int32_t weight);</td><td class="e">Nadpisanie metody z <code>ModelListener</code> – ten Presenter chce dostawać wagę.</td></tr>
+<tr><td class="n">32–33</td><td class="c">    void startPouring();
+    void stopPouring();</td><td class="e">Metody wołane przez widok po naciśnięciu przycisków.</td></tr>
+</table>
+
+<h3>9.2. <code>Screen1Presenter.cpp</code></h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">20</td><td class="c">void Screen1Presenter::UpdateWeight(int32_t weight) { view.SetWeight(weight); }</td><td class="e">Przekazanie wagi z Modelu do Widoku. Typowy wzorzec MVP: Presenter nie rysuje, tylko pośredniczy.</td></tr>
+<tr><td class="n">23–25</td><td class="c">void Screen1Presenter::startPouring() {
+    model-&gt;setValve(true);
+}</td><td class="e"><code>model</code> to wskaźnik odziedziczony z <code>ModelListener</code> (ustawiany automatycznie przez TouchGFX). Otwiera zawór 1.</td></tr>
+<tr><td class="n">27–29</td><td class="c">void Screen1Presenter::stopPouring() {
+    model-&gt;setValve(false);
+}</td><td class="e">Zamyka zawór 1.</td></tr>
+</table>
+
+<h3>9.3. <code>Screen1View.hpp</code></h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">15</td><td class="c">    virtual void SetWeight(int32_t weight);</td><td class="e">Metoda wpisująca liczbę na ekran.</td></tr>
+<tr><td class="n">16</td><td class="c">    virtual void pourButtonClicked();</td><td class="e">Nadpisanie pustej wirtualnej metody z <code>Screen1ViewBase</code> (wygenerowanej z interakcji w Designerze).</td></tr>
+<tr><td class="n">17</td><td class="c">    virtual void stopButtonClicked();</td><td class="e">Jak wyżej, dla STOP.</td></tr>
+</table>
+
+<h3>9.4. <code>Screen1View.cpp</code></h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">20</td><td class="c">void Screen1View::SetWeight(int32_t weight) {</td><td class="e">Wołana ~10 razy na sekundę przez Presenter.</td></tr>
+<tr><td class="n">22</td><td class="c">    Unicode::snprintf(textArea1Buffer, TEXTAREA1_SIZE, "%d", (int)weight);</td><td class="e">Wpisanie liczby do bufora wildcardu pola <code>textArea1</code> (rozmiar 10 znaków, z generatora). Rzutowanie na <code>int</code> i <code>%d</code>, bo <code>Unicode::snprintf</code> w TouchGFX nie obsługuje <code>%ld</code> (to wyjaśnia komentarz w linii 21).</td></tr>
+<tr><td class="n">23</td><td class="c">    textArea1.invalidate();</td><td class="e">Zlecenie przerysowania pola – bez tego nowa wartość nie pojawi się na ekranie.</td></tr>
+<tr><td class="n">26–29</td><td class="c">void Screen1View::pourButtonClicked() {
+    presenter-&gt;startPouring();
+}</td><td class="e">Naciśnięcie „Nalej” → Presenter → Model → <code>SetValveState(1, 1)</code>. Zawór jest otwarty, dopóki nie naciśniesz STOP (tu nie ma licznika czasu).</td></tr>
+<tr><td class="n">31–34</td><td class="c">void Screen1View::stopButtonClicked() {
+    presenter-&gt;stopPouring();
+}</td><td class="e">Naciśnięcie STOP → zamknięcie zaworu 1.</td></tr>
+</table>
+
+<!-- ===================================================== 10. SCREEN2 -->
+<h2>10. Ekran 2 (menu): <span class="file">Screen2View.hpp</span> <span class="file">Screen2View.cpp</span></h2>
+<p>Ekran 2 ma 4 przyciski butelek (<b>btnDrink1–4</b>), nazwy napojów (<b>BottleName1–4</b>), ilość w butelce 1 (<b>Bottle1Amount</b>), przewijaną listę przepisów (<b>scrollWheel1</b> złożoną z elementów <code>CustomContainer1</code>), przycisk <b>NALEJ</b> (<b>buttonWithLabel1</b>) i powrót (<b>backToS1</b>). Cała logika nalewania jest tutaj, w widoku – Presenter ekranu 2 nie ma dopisanego kodu.</p>
+
+<h3>10.1. <code>Screen2View.hpp</code></h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">6</td><td class="c">#include &lt;gui/containers/CustomContainer1.hpp&gt;</td><td class="e">Typ elementu listy przepisów, używany w <code>scrollWheel1UpdateItem</code>.</td></tr>
+<tr><td class="n">8–14</td><td class="c">extern "C"{
+    void SetValveState(uint8_t valve_id, uint8_t state);
+    uint8_t BLE_GetCommand(void);
+    const char *GetBottleName(uint8_t bottle_id);
+    uint16_t GetBottleVolume(uint8_t bottle_id);
+    uint8_t GetBottleNamesVersion(void);
+}</td><td class="e">Deklaracje funkcji z <code>main.c</code> z linkowaniem C – „most” do świata C. <code>GetBottleVolume</code> to zmiana dopisana w ostatniej (niezacommitowanej) wersji.</td></tr>
+<tr><td class="n">15–19</td><td class="c">struct RecipeStep {
+    uint8_t bottleId;
+    uint16_t duration;
+    uint16_t targetGram;
+};</td><td class="e">Jeden krok przepisu: z której butelki (1–4, 0 = koniec przepisu), jak długo w tickach (60 ≈ 1 s), docelowa masa w gramach – na razie <b>nieużywana</b>, przygotowana pod sterowanie wagą.</td></tr>
+<tr><td class="n">21–24</td><td class="c">struct DrinkRecipe {
+    const char* name;
+    RecipeStep steps[4];
+};</td><td class="e">Cały przepis: nazwa wyświetlana na liście i maksymalnie 4 kroki (ostatni użyty musi być <code>{0,0,0}</code>, więc realnie do 3 kroków z płynem).</td></tr>
+<tr><td class="n">26</td><td class="c">class Screen2View : public Screen2ViewBase</td><td class="e">Twoja klasa dziedziczy po wygenerowanej <code>Screen2ViewBase</code> (widżety i obsługa kliknięć).</td></tr>
+<tr><td class="n">34–37</td><td class="c">    virtual void selectDrink1(); ... selectDrink4();</td><td class="e">Nadpisania metod wywoływanych przez przyciski butelek.</td></tr>
+<tr><td class="n">39</td><td class="c">    virtual void handleTickEvent();</td><td class="e">Metoda wołana przez TouchGFX co klatkę, gdy ten ekran jest aktywny.</td></tr>
+<tr><td class="n">41</td><td class="c">    virtual void scrollWheel1UpdateItem(CustomContainer1&amp; item, int16_t itemIndex);</td><td class="e">Wołana przez listę, gdy trzeba wypełnić treścią element o danym indeksie.</td></tr>
+<tr><td class="n">42</td><td class="c">    virtual void startSelectedRecipe();</td><td class="e">Wołana przez przycisk NALEJ pod listą.</td></tr>
+<tr><td class="n">46</td><td class="c">    int16_t selectedRecipeIndex;</td><td class="e">Który przepis jest aktualnie podświetlony.</td></tr>
+<tr><td class="n">47–53</td><td class="c">    void setSelectedRecipe(int16_t);
+    void startPouring(uint8_t);
+    void startRecipe(uint8_t);
+    void openCurrentStepValve();
+    void handleBleCommand(uint8_t);
+    void stopAll();
+    void updateBottleNames();</td><td class="e">Pomocnicze metody chronione (<code>protected</code>) – opisane niżej przy definicjach.</td></tr>
+<tr><td class="n">55</td><td class="c">    uint8_t lastBottleNamesVersion;</td><td class="e">Ostatnio „widziana” wersja nazw – porównywana z <code>GetBottleNamesVersion()</code>.</td></tr>
+<tr><td class="n">57–61</td><td class="c">    enum MenuState{ IDLE, POURING, POURING_RECIPE };</td><td class="e">Stany maszyny nalewania: bezczynny, nalewanie z jednej butelki, wykonywanie przepisu.</td></tr>
+<tr><td class="n">63</td><td class="c">    MenuState currentState;</td><td class="e">Aktualny stan.</td></tr>
+<tr><td class="n">64</td><td class="c">    uint16_t tickCounter;</td><td class="e">Licznik klatek od początku bieżącego nalewania/kroku.</td></tr>
+<tr><td class="n">65</td><td class="c">    uint8_t activeBottle;</td><td class="e">Która butelka leje w trybie <code>POURING</code>.</td></tr>
+<tr><td class="n">67–68</td><td class="c">    uint8_t currentRecipeIdx;
+    uint8_t currentStepIdx;</td><td class="e">Który przepis i który jego krok jest wykonywany.</td></tr>
+<tr><td class="n">70</td><td class="c">    static const DrinkRecipe recipeList[3];</td><td class="e">Tablica przepisów – <code>static</code>, czyli jedna wspólna dla klasy, i <code>const</code>, więc trafia do flasha, nie do RAM.</td></tr>
+</table>
+
+<h3>10.2. <code>Screen2View.cpp</code> – lista przepisów i konstruktor</h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">5</td><td class="c">const DrinkRecipe Screen2View::recipeList[3] = {</td><td class="e">Definicja tablicy przepisów zadeklarowanej w nagłówku.</td></tr>
+<tr><td class="n">7–14</td><td class="c">    { "1. Opcja A",
+      { {1, 300, 50}, {2, 420, 100}, {0, 0, 0} } },</td><td class="e">Przepis A: butelka 1 przez 300 ticków (≈5 s), potem butelka 2 przez 420 ticków (≈7 s). <code>{0,0,0}</code> = koniec.</td></tr>
+<tr><td class="n">16–23</td><td class="c">    { "2. Szybki Mix",
+      { {3, 180, 30}, {1, 240, 60}, {0, 0, 0} } },</td><td class="e">Przepis B: butelka 3 ≈3 s, potem butelka 1 ≈4 s.</td></tr>
+<tr><td class="n">25–31</td><td class="c">    { "3. Shot",
+      { {4, 120, 25}, {0, 0, 0} } }</td><td class="e">Przepis C: butelka 4 ≈2 s. Pozostałe kroki tablicy (do 4) są automatycznie wyzerowane przez kompilator.</td></tr>
+<tr><td class="n">34</td><td class="c">Screen2View::Screen2View():currentState(IDLE), tickCounter(0), activeBottle(0), currentRecipeIdx(0), currentStepIdx(0), selectedRecipeIndex(0)</td><td class="e">Konstruktor z listą inicjalizacyjną – ustawia stan początkowy: bezczynny, liczniki 0, zaznaczony przepis 0. (<code>lastBottleNamesVersion</code> jest ustawiane w <code>setupScreen</code>.)</td></tr>
+</table>
+
+<h3>10.3. <code>setupScreen</code>, lista przepisów, zaznaczenie</h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">39–41</td><td class="c">void Screen2View::setupScreen()
+{
+    Screen2ViewBase::setupScreen();</td><td class="e">Wołane przy wejściu na ekran. Najpierw wersja bazowa (wygenerowana).</td></tr>
+<tr><td class="n">44</td><td class="c">    BLE_GetCommand();</td><td class="e">Wynik celowo ignorowany: „wyrzucamy” komendę, która mogła przyjść, gdy ekran był zamknięty – żeby po wejściu nie zaczęło się nagle nalewanie.</td></tr>
+<tr><td class="n">45</td><td class="c">    updateBottleNames();</td><td class="e">Wpisanie aktualnych nazw i ilości do pól tekstowych.</td></tr>
+<tr><td class="n">48–51</td><td class="c">void Screen2View::tearDownScreen() { Screen2ViewBase::tearDownScreen(); }</td><td class="e">Szkielet – przy wyjściu z ekranu. Uwaga: zawory nie są tu zamykane (patrz rozdział 15).</td></tr>
+<tr><td class="n">55</td><td class="c">void Screen2View::scrollWheel1UpdateItem(CustomContainer1&amp; item, int16_t itemIndex)</td><td class="e">Wołana przez <code>Screen2ViewBase::updateItemCallbackHandler</code> dla każdego widocznego elementu listy.</td></tr>
+<tr><td class="n">57</td><td class="c">    if (itemIndex &gt;= 0 &amp;&amp; itemIndex &lt; 3)</td><td class="e">Ochrona zakresu – lista ma 3 elementy (<code>setNumberOfItems(3)</code> w kodzie generowanym).</td></tr>
+<tr><td class="n">59</td><td class="c">        item.setRecipeName(recipeList[itemIndex].name);</td><td class="e">Wpisanie nazwy przepisu do elementu (rozdział 11).</td></tr>
+<tr><td class="n">60</td><td class="c">        item.setSelected(itemIndex == selectedRecipeIndex);</td><td class="e">Kolor tła: niebieski dla wybranego, brązowy dla pozostałych.</td></tr>
+<tr><td class="n">64</td><td class="c">void Screen2View::setSelectedRecipe(int16_t itemIndex)</td><td class="e">Zmienia podświetlony przepis.</td></tr>
+<tr><td class="n">66–69</td><td class="c">    if (itemIndex == selectedRecipeIndex) { return; }</td><td class="e">Bez zmiany – nic nie robimy (ta funkcja jest wołana co klatkę, więc to oszczędza przerysowań).</td></tr>
+<tr><td class="n">71</td><td class="c">    selectedRecipeIndex = itemIndex;</td><td class="e">Zapamiętanie nowego wyboru.</td></tr>
+<tr><td class="n">76–79</td><td class="c">    for (int16_t i = 0; i &lt; 3; i++) {
+        scrollWheel1.itemChanged(i);
+    }</td><td class="e"><code>itemChanged</code> każe liście ponownie wywołać <code>scrollWheel1UpdateItem</code> dla elementu – dzięki temu kolory się przeliczą. Samo <code>invalidate()</code> przerysowałoby elementy ze starym kolorem (to wyjaśnia komentarz).</td></tr>
+</table>
+
+<h3>10.4. Uruchamianie nalewania i przepisów</h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">83–87</td><td class="c">void Screen2View::startSelectedRecipe()
+{
+    int16_t selected = scrollWheel1.getSelectedItem();
+    startRecipe((uint8_t)selected);
+}</td><td class="e">Przycisk NALEJ: pobiera z listy indeks wybranego przepisu i go uruchamia.</td></tr>
+<tr><td class="n">90</td><td class="c">void Screen2View::startRecipe(uint8_t recipeIndex)</td><td class="e">Start przepisu wieloetapowego (z ekranu lub z BLE <code>#A..#C</code>).</td></tr>
+<tr><td class="n">92</td><td class="c">    if (currentState == IDLE)</td><td class="e">Tylko gdy nic się nie leje – zabezpieczenie przed nakładaniem się nalewań.</td></tr>
+<tr><td class="n">94–97</td><td class="c">        currentRecipeIdx = recipeIndex;
+        currentStepIdx = 0;
+        tickCounter = 0;
+        currentState = POURING_RECIPE;</td><td class="e">Ustawienie przepisu, pierwszego kroku, wyzerowanie licznika i zmiana stanu.</td></tr>
+<tr><td class="n">99</td><td class="c">        openCurrentStepValve();</td><td class="e">Otwarcie zaworu pierwszego kroku.</td></tr>
+<tr><td class="n">104</td><td class="c">void Screen2View::openCurrentStepValve()</td><td class="e">Otwiera zawór butelki z bieżącego kroku.</td></tr>
+<tr><td class="n">106</td><td class="c">    uint8_t bottle = recipeList[currentRecipeIdx].steps[currentStepIdx].bottleId;</td><td class="e">Odczyt numeru butelki z tablicy przepisów.</td></tr>
+<tr><td class="n">107–110</td><td class="c">    if (bottle != 0) {
+        SetValveState(bottle, 1);
+    }</td><td class="e">0 oznacza koniec przepisu – wtedy nic nie otwieramy.</td></tr>
+<tr><td class="n">116–133</td><td class="c">void Screen2View::selectDrink1(){ startPouring(1); }
+... selectDrink4(){ startPouring(4); }</td><td class="e">Przyciski butelek 1–4 (powiązane w Designerze) – każdy uruchamia nalewanie z odpowiedniej butelki.</td></tr>
+<tr><td class="n">138</td><td class="c">void Screen2View::startPouring(uint8_t bottleNum){</td><td class="e">Nalewanie z jednej butelki przez stały czas.</td></tr>
+<tr><td class="n">139–144</td><td class="c">    if(currentState==IDLE){
+        activeBottle=bottleNum;
+        currentState=POURING;
+        tickCounter=0;
+        SetValveState(activeBottle,1);
+    }</td><td class="e">Jeśli nic nie leje: zapamiętaj butelkę, przejdź w stan <code>POURING</code>, wyzeruj licznik, otwórz zawór. Zamknięcie nastąpi w <code>handleTickEvent</code> po 180 tickach.</td></tr>
+</table>
+
+<h3>10.5. Komendy BLE, STOP, odświeżanie nazw</h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">149</td><td class="c">void Screen2View::handleBleCommand(uint8_t cmd)</td><td class="e">Zamienia komendę z BLE na tę samą akcję, którą wywołałby przycisk. Dla <code>cmd = 0</code> (brak) nic nie robi.</td></tr>
+<tr><td class="n">151–154</td><td class="c">    if (cmd &gt;= '1' &amp;&amp; cmd &lt;= '4') {
+        startPouring(cmd - '0');
+    }</td><td class="e">Znak <code>'3'</code> → liczba 3 → nalewanie z butelki 3.</td></tr>
+<tr><td class="n">155–158</td><td class="c">    else if (cmd &gt;= 'A' &amp;&amp; cmd &lt;= 'C') {
+        startRecipe(cmd - 'A');
+    }</td><td class="e"><code>'A'</code> → przepis 0, <code>'B'</code> → 1, <code>'C'</code> → 2.</td></tr>
+<tr><td class="n">159–162</td><td class="c">    else if (cmd == 'S') {
+        stopAll();
+    }</td><td class="e">STOP – zawory zostały już zamknięte w przerwaniu, tu zerujemy stan ekranu.</td></tr>
+<tr><td class="n">165–176</td><td class="c">void Screen2View::stopAll()
+{
+    for (valve = 1..4) SetValveState(valve, 0);
+    currentState = IDLE;
+    activeBottle = 0; tickCounter = 0;
+    currentRecipeIdx = 0; currentStepIdx = 0;
+}</td><td class="e">Zamknięcie wszystkich zaworów i powrót maszyny stanów do <code>IDLE</code>.</td></tr>
+<tr><td class="n">178</td><td class="c">void Screen2View::updateBottleNames()</td><td class="e">Przepisuje nazwy (i ilość dla butelki 1) z <code>main.c</code> do pól tekstowych ekranu.</td></tr>
+<tr><td class="n">182</td><td class="c">    lastBottleNamesVersion = GetBottleNamesVersion();</td><td class="e">Wersję zapamiętujemy <b>przed</b> kopiowaniem. Gdyby nazwa zmieniła się w trakcie, wersja w <code>main.c</code> będzie już większa i w następnej klatce odświeżymy ponownie.</td></tr>
+<tr><td class="n">184</td><td class="c">    Unicode::strncpy(BottleName1Buffer, GetBottleName(1), BOTTLENAME1_SIZE);</td><td class="e">Kopia napisu C (8-bitowego) do bufora TouchGFX (16-bitowego), maksymalnie 17 znaków.</td></tr>
+<tr><td class="n">185</td><td class="c">    BottleName1Buffer[BOTTLENAME1_SIZE - 1] = 0;</td><td class="e">Wymuszenie zakończenia napisu – <code>strncpy</code> nie dopisuje terminatora, gdy źródło wypełni cały bufor.</td></tr>
+<tr><td class="n">186</td><td class="c">    BottleName1.invalidate();</td><td class="e">Przerysowanie pola z nazwą.</td></tr>
+<tr><td class="n">188</td><td class="c">    Unicode::snprintf(Bottle1AmountBuffer, BOTTLE1AMOUNT_SIZE, "%d", (int)GetBottleVolume(1));</td><td class="e"><i>Nowa, niezacommitowana linia.</i> Wpisanie ilości ml butelki 1 do wildcardu pola <code>Bottle1Amount</code> (tekst „&lt;value&gt; ml”, bufor 6 znaków – wystarczy na 4 cyfry).</td></tr>
+<tr><td class="n">189</td><td class="c">    Bottle1Amount.invalidate();</td><td class="e">Przerysowanie pola ilości.</td></tr>
+<tr><td class="n">191–201</td><td class="c">    (to samo dla BottleName2, 3, 4)</td><td class="e">Analogicznie dla butelek 2–4 – tylko nazwy (pól ilości dla nich jeszcze nie ma w Designerze).</td></tr>
+</table>
+
+<h3>10.6. <code>handleTickEvent</code> – serce ekranu 2 (linie 204–255)</h3>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">204–205</td><td class="c">void Screen2View::handleTickEvent(){
+    Screen2ViewBase::handleTickEvent();</td><td class="e">Wołana co klatkę. Najpierw wersja bazowa (np. animacje).</td></tr>
+<tr><td class="n">207</td><td class="c">    handleBleCommand(BLE_GetCommand());</td><td class="e">Pobranie (i skasowanie) komendy z BLE oraz jej wykonanie.</td></tr>
+<tr><td class="n">209–212</td><td class="c">    if (GetBottleNamesVersion() != lastBottleNamesVersion) {
+        updateBottleNames();
+    }</td><td class="e">Odświeżenie napisów tylko wtedy, gdy coś się zmieniło.</td></tr>
+<tr><td class="n">216</td><td class="c">    setSelectedRecipe(scrollWheel1.getSelectedItem());</td><td class="e">Odpytywanie listy o wybrany element i aktualizacja podświetlenia. Robione tak, bo callbacki zmiany wyboru listy nie są podłączone w Designerze.</td></tr>
+<tr><td class="n">218–219</td><td class="c">    if(currentState==POURING){
+        tickCounter++;</td><td class="e">Tryb pojedynczej butelki: liczymy klatki.</td></tr>
+<tr><td class="n">221–226</td><td class="c">        if(tickCounter&gt;=180){
+            SetValveState(activeBottle,0);
+            currentState=IDLE;
+            activeBottle=0;
+            tickCounter=0;
+        }</td><td class="e">Po 180 klatkach (≈3 s) zamykamy zawór i wracamy do <code>IDLE</code>.</td></tr>
+<tr><td class="n">228–229</td><td class="c">    else if(currentState==POURING_RECIPE){
+        tickCounter++;</td><td class="e">Tryb przepisu: liczymy klatki bieżącego kroku.</td></tr>
+<tr><td class="n">231</td><td class="c">        RecipeStep currentStep = recipeList[currentRecipeIdx].steps[currentStepIdx];</td><td class="e">Kopia bieżącego kroku (dla wygody zapisu).</td></tr>
+<tr><td class="n">233</td><td class="c">        if (tickCounter &gt;= currentStep.duration)</td><td class="e">Czas kroku minął.</td></tr>
+<tr><td class="n">236</td><td class="c">            SetValveState(currentStep.bottleId, 0);</td><td class="e">Zamknięcie zaworu bieżącego kroku.</td></tr>
+<tr><td class="n">239–240</td><td class="c">            currentStepIdx++;
+            tickCounter = 0;</td><td class="e">Przejście do następnego kroku i nowe odliczanie.</td></tr>
+<tr><td class="n">243–246</td><td class="c">            if (recipeList[...].steps[currentStepIdx].bottleId != 0) {
+                openCurrentStepValve();
+            }</td><td class="e">Jeśli kolejny krok ma butelkę – otwieramy jej zawór.</td></tr>
+<tr><td class="n">247–252</td><td class="c">            else {
+                currentState = IDLE;
+                currentRecipeIdx = 0;
+                currentStepIdx = 0;
+            }</td><td class="e">Krok <code>{0,0,0}</code> = koniec drinka, powrót do <code>IDLE</code>.</td></tr>
+</table>
+
+<h4>Maszyna stanów ekranu 2 – przejścia</h4>
+<table class="t">
+<tr><th>Ze stanu</th><th>Zdarzenie</th><th>Akcja</th><th>Do stanu</th></tr>
+<tr><td><code>IDLE</code></td><td>przycisk butelki N lub BLE <code>#1</code>…<code>#4</code></td><td>otwórz zawór N, <code>tickCounter = 0</code></td><td><code>POURING</code></td></tr>
+<tr><td><code>POURING</code></td><td><code>tickCounter</code> osiąga 180 (≈3 s)</td><td>zamknij zawór</td><td><code>IDLE</code></td></tr>
+<tr><td><code>IDLE</code></td><td>NALEJ lub BLE <code>#A</code>…<code>#C</code></td><td>krok 0, otwórz zawór kroku 0</td><td><code>POURING_RECIPE</code></td></tr>
+<tr><td><code>POURING_RECIPE</code></td><td><code>tickCounter</code> osiąga <code>duration</code>, następny krok ma butelkę</td><td>zamknij bieżący zawór, otwórz następny</td><td><code>POURING_RECIPE</code></td></tr>
+<tr><td><code>POURING_RECIPE</code></td><td><code>tickCounter</code> osiąga <code>duration</code>, następny krok to <code>{0,0,0}</code></td><td>zamknij zawór</td><td><code>IDLE</code></td></tr>
+<tr><td>dowolny</td><td>BLE <code>#S</code> / <code>#0</code></td><td>zamknij wszystkie zawory (<code>stopAll</code>)</td><td><code>IDLE</code></td></tr>
+<tr><td><code>POURING</code> / <code>POURING_RECIPE</code></td><td>przycisk butelki, NALEJ, komenda BLE</td><td>ignorowane (warunek <code>currentState == IDLE</code>)</td><td>bez zmiany</td></tr>
+</table>
+
+
+<!-- ===================================================== 11. CUSTOMCONTAINER -->
+<h2>11. Element listy: <span class="file">CustomContainer1.hpp</span> <span class="file">CustomContainer1.cpp</span></h2>
+<p>Własny kontener TouchGFX – szablon jednego wiersza listy przepisów: prostokąt tła (<code>box1</code>) i tekst z wildcardem (<code>textArea1</code>, bufor 20 znaków).</p>
+<table class="code">
+<tr><th>#</th><th>Kod</th><th>Znaczenie</th></tr>
+<tr><td class="n">hpp 14</td><td class="c">    void setRecipeName(const char* name);</td><td class="e">Deklaracja: ustawienie nazwy przepisu.</td></tr>
+<tr><td class="n">hpp 16</td><td class="c">    void setSelected(bool isSelected);</td><td class="e">Deklaracja: ustawienie podświetlenia.</td></tr>
+<tr><td class="n">cpp 2</td><td class="c">#include &lt;texts/TextKeysAndLanguages.hpp&gt;</td><td class="e">Identyfikatory tekstów TouchGFX (tutaj w praktyce nieużywane, nieszkodliwe).</td></tr>
+<tr><td class="n">cpp 3</td><td class="c">#include &lt;touchgfx/Color.hpp&gt;</td><td class="e">Dla <code>Color::getColorFromRGB</code>.</td></tr>
+<tr><td class="n">cpp 15–19</td><td class="c">void CustomContainer1::setRecipeName(const char* name)
+{
+    Unicode::strncpy(textArea1Buffer, name, TEXTAREA1_SIZE);
+    textArea1.invalidate();
+}</td><td class="e">Kopia nazwy przepisu do bufora tekstu i przerysowanie. (Nazwy przepisów są krótsze niż 20 znaków, więc brak wymuszenia <code>'\0'</code> tu nie przeszkadza.)</td></tr>
+<tr><td class="n">cpp 21–32</td><td class="c">void CustomContainer1::setSelected(bool isSelected)
+{
+    if (isSelected)
+        box1.setColor(getColorFromRGB(0, 160, 230));
+    else
+        box1.setColor(getColorFromRGB(120, 80, 80));
+    box1.invalidate();
+}</td><td class="e">Kolor tła: niebieski (R=0, G=160, B=230) dla wybranego przepisu, brązowo-czerwony (120, 80, 80) dla pozostałych. <code>invalidate()</code> – przerysowanie prostokąta.</td></tr>
+</table>
+
+<!-- ===================================================== 12. DESIGNER -->
+<h2>12. Zmiany w TouchGFX Designer</h2>
+<p>Pliki <code>TouchGFX/MyApplication_1.touchgfx</code> i <code>TouchGFX/assets/texts/texts.xml</code> nie są kodem pisanym ręcznie – zapisuje je Designer. Na ich podstawie generowany jest katalog <code>TouchGFX/generated/</code> (pliki <code>*Base.cpp/hpp</code>), z którego korzysta Twój kod. Najważniejsze powiązania:</p>
+<table class="t">
+<tr><th>Element w Designerze</th><th>Co generuje</th><th>Gdzie używa tego Twój kod</th></tr>
+<tr><td>Interakcja <i>btnPour clicked → call virtual function pourButtonClicked</i></td><td>Wywołanie <code>pourButtonClicked()</code> w <code>Screen1ViewBase.cpp</code></td><td><code>Screen1View::pourButtonClicked</code></td></tr>
+<tr><td>Interakcja <i>btnStop → stopButtonClicked</i></td><td>jw.</td><td><code>Screen1View::stopButtonClicked</code></td></tr>
+<tr><td><i>btnDrink1..4 → selectDrink1..4</i></td><td><code>Screen2ViewBase::flexButtonCallbackHandler</code></td><td><code>Screen2View::selectDrink1..4</code></td></tr>
+<tr><td><i>buttonWithLabel1 → startSelectedRecipe</i></td><td><code>Screen2ViewBase::buttonCallbackHandler</code></td><td><code>Screen2View::startSelectedRecipe</code></td></tr>
+<tr><td>Scroll Wheel <code>scrollWheel1</code> (3 elementy, szablon <code>CustomContainer1</code>)</td><td><code>updateItemCallbackHandler</code> → <code>scrollWheel1UpdateItem</code></td><td><code>Screen2View::scrollWheel1UpdateItem</code></td></tr>
+<tr><td>Pole <code>textArea1</code> z wildcardem, bufor 10</td><td><code>textArea1Buffer</code>, <code>TEXTAREA1_SIZE</code></td><td><code>Screen1View::SetWeight</code></td></tr>
+<tr><td>Pola <code>BottleName1..4</code> z wildcardem, bufor 17</td><td><code>BottleNameNBuffer</code>, <code>BOTTLENAMEN_SIZE</code></td><td><code>Screen2View::updateBottleNames</code></td></tr>
+<tr><td><b>Nowe:</b> pole <code>Bottle1Amount</code>, tekst „&lt;value&gt; ml” (w <code>texts.xml</code> jako <code>__SingleUse_CZMD</code>), bufor 6</td><td><code>Bottle1AmountBuffer</code>, <code>BOTTLE1AMOUNT_SIZE</code></td><td><code>Screen2View::updateBottleNames</code>, linie 188–189</td></tr>
+</table>
+
+<!-- ===================================================== 13. PROTOKÓŁ -->
+<h2>13. Protokół komunikacji BLE – ściąga</h2>
+<h4>Komendy natychmiastowe (prefiks <code>#</code>, jeden znak)</h4>
+<table class="t">
+<tr><th>Wysyłasz</th><th>Efekt</th><th>Gdzie obsługiwane</th></tr>
+<tr><td><code>#1</code> … <code>#4</code></td><td>Nalewanie z butelki 1–4 przez ≈3 s (gdy otwarty jest ekran 2 i nic się nie leje)</td><td>przerwanie → <code>ble_command</code> → <code>Screen2View::handleBleCommand</code></td></tr>
+<tr><td><code>#A</code> … <code>#C</code> (lub <code>#a</code>…<code>#c</code>)</td><td>Przepis 1–3</td><td>jw.</td></tr>
+<tr><td><code>#0</code>, <code>#S</code>, <code>#s</code></td><td>STOP – natychmiast zamyka wszystkie zawory (na każdym ekranie)</td><td>bezpośrednio w <code>HAL_UART_RxCpltCallback</code></td></tr>
+</table>
+<h4>Wiadomości tekstowe (<code>$</code> … <code>\n</code>)</h4>
+<table class="t">
+<tr><th>Wysyłasz</th><th>Odpowiedź</th><th>Znaczenie</th></tr>
+<tr><td><code>$SET,2,Wodka,700\n</code></td><td><code>$OK,2,Wodka,700\n</code></td><td>Butelka 2 = „Wodka”, zostało 700 ml</td></tr>
+<tr><td><code>$SET,2,Wodka\n</code></td><td><code>$OK,2,Wodka,700\n</code></td><td>Tylko nazwa, ilość bez zmian</td></tr>
+<tr><td><code>$GET\n</code></td><td><code>$B,1,..\n$B,2,..\n$B,3,..\n$B,4,..\n$END\n</code></td><td>Wszystkie nazwy</td></tr>
+<tr><td><code>$GET,3\n</code></td><td><code>$B,3,Rum\n</code></td><td>Jedna butelka</td></tr>
+</table>
+<h4>Błędy</h4>
+<table class="t">
+<tr><th>Odpowiedź</th><th>Przyczyna</th></tr>
+<tr><td><code>$ERR,LEN</code></td><td>Wiadomość dłuższa niż 40 znaków</td></tr>
+<tr><td><code>$ERR,CMD</code></td><td>Nieznana komenda (nie GET / SET)</td></tr>
+<tr><td><code>$ERR,ID</code></td><td>Numer butelki spoza 1–4 lub zły format</td></tr>
+<tr><td><code>$ERR,NAME</code></td><td>Nazwa pusta, &gt; 16 znaków, z polskimi literami lub ze znakami <code>, $ #</code></td></tr>
+<tr><td><code>$ERR,VOL</code></td><td>Ilość nie jest liczbą 0–9999</td></tr>
+</table>
+
+<!-- ===================================================== 14. SCENARIUSZE -->
+<h2>14. Scenariusze krok po kroku</h2>
+
+<h3>A. Włączenie zasilania</h3>
+<ol>
+  <li><code>main()</code>: inicjalizacja CubeMX (zegary, SDRAM, QSPI, ekran, TouchGFX).</li>
+  <li>Twój kod: konfiguracja PB4/PG7 (HX711), PI0–PI3 (zawory) i ich zamknięcie.</li>
+  <li><code>BottleNames_Load()</code> – odczyt ostatnich nazw/ilości z sektora 7 flash.</li>
+  <li><code>MX_USART6_UART_Init()</code> i <code>HAL_UART_Receive_IT</code> – BLE zaczyna nasłuchiwać.</li>
+  <li>Start FreeRTOS: <code>defaultTask</code> czeka 0,5 s, robi tarę (20 pomiarów), a potem mierzy w pętli; <code>TouchGFXTask</code> pokazuje ekran 1.</li>
+</ol>
+
+<h3>B. Wyświetlanie wagi na ekranie 1</h3>
+<ol>
+  <li><code>StartDefaultTask</code> co ~1 s ustawia <code>waga_gramy</code>.</li>
+  <li><code>Model::tick()</code> co 6 klatek woła <code>modelListener-&gt;UpdateWeight(waga_gramy)</code>.</li>
+  <li><code>Screen1Presenter::UpdateWeight</code> → <code>Screen1View::SetWeight</code> → <code>Unicode::snprintf</code> + <code>invalidate()</code>.</li>
+</ol>
+
+<h3>C. Naciśnięcie „Nalej” na ekranie 1</h3>
+<p><code>Screen1ViewBase::buttonCallbackHandler</code> → <code>Screen1View::pourButtonClicked</code> → <code>Screen1Presenter::startPouring</code> → <code>Model::setValve(true)</code> → <code>SetValveState(1, 1)</code> → PI0 = 0 V → przekaźnik otwiera zawór 1. Zawór jest otwarty do naciśnięcia STOP.</p>
+
+<h3>D. Telefon wysyła <code>#2</code>, gdy otwarty jest ekran 2</h3>
+<ol>
+  <li>Bajt <code>'#'</code> → przerwanie → <code>ble_prefix_seen = 1</code>.</li>
+  <li>Bajt <code>'2'</code> → przerwanie → <code>ble_command = '2'</code>.</li>
+  <li>Najbliższa klatka: <code>handleTickEvent</code> → <code>BLE_GetCommand()</code> zwraca <code>'2'</code> → <code>startPouring(2)</code> → zawór 2 otwarty, stan <code>POURING</code>.</li>
+  <li>Po 180 klatkach (≈3 s) <code>handleTickEvent</code> zamyka zawór i wraca do <code>IDLE</code>.</li>
+</ol>
+
+<h3>E. Telefon wysyła <code>$SET,1,Sok,500\n</code></h3>
+<ol>
+  <li><code>'$'</code> rozpoczyna zbieranie; kolejne znaki trafiają do <code>ble_line</code>; <code>'\n'</code> kończy → <code>BLE_HandleLine()</code>.</li>
+  <li>Walidacja ID, rozcięcie „Sok” / „500”, <code>ParseVolume</code>, <code>IsValidBottleName</code>.</li>
+  <li>Zapis do <code>bottleName[0]</code>, <code>bottleVolume[0]</code>; <code>bottleNamesVersion++</code>; <code>bottleNamesDirty = 1</code>.</li>
+  <li>Odpowiedź <code>$OK,1,Sok,500\n</code> przez <code>BLE_Send</code>.</li>
+  <li>Ekran 2 w następnej klatce zauważa nową wersję → <code>updateBottleNames()</code> → widać „Sok” i „500 ml”.</li>
+  <li>Po 2 s ciszy <code>StartDefaultTask</code> woła <code>BottleNames_Save()</code> → nowy rekord w sektorze 7. Po restarcie nazwa zostanie wczytana.</li>
+</ol>
+
+<h3>F. Telefon wysyła <code>#S</code></h3>
+<p>Przerwanie od razu zamyka zawory 1–4 i ustawia <code>ble_command = 'S'</code>. Jeśli otwarty jest ekran 2, w najbliższej klatce <code>stopAll()</code> zeruje maszynę stanów (przerywa trwający przepis).</p>
+
+<!-- ===================================================== 15. UWAGI -->
+<h2>15. Uwagi i potencjalne problemy znalezione przy analizie</h2>
+<p>To nie są błędy blokujące działanie – raczej rzeczy, o których warto wiedzieć, rozwijając projekt.</p>
+
+<div class="warn"><b>1. Zdublowany znacznik <code>/* USER CODE BEGIN 2 */</code> w <code>main.c</code> (linia 313).</b> Znajduje się wewnątrz już otwartej sekcji USER CODE 2. CubeMX przy regeneracji kodu szuka par BEGIN/END – dodatkowy BEGIN może spowodować, że część kodu zostanie zgubiona lub zdublowana. Bezpieczniej go usunąć.</div>
+
+<div class="warn"><b>2. Podwójna konfiguracja PI0–PI3.</b> CubeMX już konfiguruje te piny w <code>MX_GPIO_Init</code> (linie 778–804, stan wysoki). Twój kod konfiguruje je ponownie (z podciąganiem). Działa, ale jedno miejsce wystarczy. Dodatkowo <b>PI1 to na płytce DISCO także zielona dioda LD1</b> – przy zaworze 2 dioda będzie się zmieniać razem z nim.</div>
+
+<div class="warn"><b>3. Ekran 1 steruje tylko zaworem 1 i bez limitu czasu.</b> Po „Nalej” zawór zostaje otwarty, dopóki ktoś nie naciśnie STOP. Przejście na ekran 2 nie zamyka zaworu.</div>
+
+<div class="warn"><b>4. Wyjście z ekranu 2 w trakcie nalewania.</b> <code>tearDownScreen()</code> nie zamyka zaworów, a liczniki są w <code>Screen2View</code>, który przestaje dostawać ticki – zawór zostanie otwarty do STOP. Warto dodać <code>stopAll()</code> w <code>tearDownScreen()</code>.</div>
+
+<div class="warn"><b>5. Komendy <code>#1..#C</code> działają tylko na ekranie 2.</b> Na ekranie 1 nikt nie wywołuje <code>BLE_GetCommand()</code>, a po wejściu na ekran 2 komenda jest celowo wyrzucana. Działa zawsze jedynie STOP.</div>
+
+<div class="warn"><b>6. Czas nalewania zależy od liczby klatek.</b> 180 ticków ≈ 3 s tylko przy 60 FPS. Jeśli ekran zwolni (np. przy kasowaniu flash, które zatrzymuje procesor na 1–2 s), zawór będzie otwarty dłużej. Do precyzyjnego dozowania lepiej liczyć czas przez <code>HAL_GetTick()</code> albo wagą (pole <code>targetGram</code> jest już przygotowane).</div>
+
+<div class="warn"><b>7. Bit-banging HX711 a przerwania.</b> Jeśli przerwanie (np. LTDC, DMA2D, UART) trafi w moment, gdy PG7 jest w stanie wysokim, i potrwa ponad 60 µs, HX711 przejdzie w uśpienie i odczyt będzie błędny. Przy obecnych przerwaniach to mało prawdopodobne, ale przy dziwnych skokach wagi można otoczyć pojedynczy impuls sekcją krytyczną.</div>
+
+<div class="warn"><b>8. Kasowanie sektora 7 zatrzymuje cały procesor na 1–2 s</b> (wykonywanie kodu z tego samego banku flash). Zdarza się tylko raz na ~3276 zapisów, ale w tym czasie ekran stoi, a bajty z BLE mogą zostać zgubione (overrun – obsłużony przez <code>HAL_UART_ErrorCallback</code>).</div>
+
+<div class="warn"><b>9. Drobne nieścisłości w komentarzach.</b> Komentarz przy rekordzie mówi o „ok. 3600 zapisach” – po dodaniu pola <code>volume</code> rekord ma 80 B, więc mieści się 3276. W <code>Model.cpp</code> komentarz „tę funkcję zaraz napiszemy” jest nieaktualny.</div>
+
+<div class="warn"><b>10. <code>SetValveState</code> z błędnym numerem</b> (0 lub &gt; 4) steruje zaworem 1 (wartości domyślne). Bezpieczniej byłoby wtedy po prostu wyjść z funkcji.</div>
+
+<div class="warn"><b>11. Ilość ml jest wyświetlana tylko dla butelki 1.</b> Dla butelek 2–4 trzeba dodać w Designerze pola <code>Bottle2Amount</code>… i dopisać analogiczne linie w <code>updateBottleNames()</code>. Deklaracje <code>GetBottleVolume</code> i <code>GetBottleNamesVersion</code> można też dodać do <code>main.h</code>.</div>
+
+<div class="warn"><b>12. Skrypty linkera EWARM/Keil</b> nie mają rezerwacji sektora 7 (rozdział 4) – istotne tylko, jeśli kiedyś zbudujesz projekt tymi narzędziami.</div>
+
+<p class="small" style="margin-top:20px">Numery linii odpowiadają stanowi plików z 3 listopada 2026. Po edycji plików mogą się przesunąć.</p>
+
+</body>
+</html>

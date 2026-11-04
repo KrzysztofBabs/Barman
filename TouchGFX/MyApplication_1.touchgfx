@@ -384,7 +384,7 @@
           {
             "Type": "ScrollWheel",
             "Name": "scrollWheel1",
-            "X": 250,
+            "X": 300,
             "Width": 180,
             "Height": 150,
             "SelectedItemOffset": 55,
@@ -399,8 +399,8 @@
           {
             "Type": "ButtonWithLabel",
             "Name": "buttonWithLabel1",
-            "X": 220,
-            "Y": 152,
+            "X": 240,
+            "Y": 150,
             "Width": 240,
             "Height": 50,
             "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_rounded_pressed.png",
@@ -474,6 +474,20 @@
             "Wildcard1": {
               "UseBuffer": true,
               "BufferSize": 17
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "Bottle1Amount",
+            "X": 200,
+            "Y": 56,
+            "Width": 89,
+            "Height": 31,
+            "TextId": "__SingleUse_CZMD",
+            "TextRotation": "0",
+            "Wildcard1": {
+              "UseBuffer": true,
+              "BufferSize": 6
             }
           }
         ],

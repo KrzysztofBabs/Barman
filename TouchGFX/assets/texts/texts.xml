@@ -13,6 +13,9 @@
       </Text>
     </TextGroup>
     <TextGroup Id="Unsorted">
+      <Text Id="__SingleUse_CZMD" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt; ml</Translation>
+      </Text>
       <Text Id="__SingleUse_LXA2" Alignment="Center" TypographyId="Default">
         <Translation Language="GB">&lt;value&gt;</Translation>
       </Text>

@@ -68,13 +68,18 @@
 #define BOTTLE_NAME_MAX   16   // bez koncowego '\0'
 #define BLE_LINE_MAX      40   // "SET,n," + nazwa, z zapasem
 #define BLE_TX_MAX        128  // odpowiedz na $GET: 4 x "$B,n,nazwa\n" + "$END\n"
+#define BOTTLE_VOLUME_MAX 9999 // ml
+
+// --- Wlasny drink z aplikacji ("$MIX,1:50,2:70\n") ---
+#define MIX_STEP_MAX      4    // maks. krokow w jednym drinku
+#define MIX_TIME_MAX      300  // maks. czas kroku w 0,1 s (30 s)
 
 // --- Zapis nazw butelek w wewnetrznym flashu ---
 // Ostatni sektor (7, 256 KB). Linker ma FLASH = 768K, zeby program tu nie wszedl.
 #define NAMES_FLASH_ADDR    0x080C0000u
 #define NAMES_FLASH_SIZE    0x40000u
 #define NAMES_FLASH_SECTOR  FLASH_SECTOR_7
-#define NAMES_MAGIC         0x424F544Cu  // "BOTL"
+#define NAMES_MAGIC         0x424F5432u  // "BOT2" - zmienic przy kazdej zmianie BottleNamesRecord
 #define NAMES_SAVE_DELAY_MS 2000u        // zapis 2 s po ostatniej zmianie
 
 /* USER CODE END PD */
@@ -146,6 +151,15 @@ static char bottleName[BOTTLE_COUNT][BOTTLE_NAME_MAX + 1] = {
   "null", "null", "null", "null"
     // "Butelka 1", "Butelka 2", "Butelka 3", "Butelka 4"
 };
+// Ile ml zostalo w butelce (ustawiane z aplikacji komenda $VOL).
+static uint16_t bottleVolume[BOTTLE_COUNT] = { 0, 0, 0, 0 };
+
+// Ostatni przyjety przepis $MIX - odbiera go ekran przez BLE_GetMix().
+static uint8_t mixBottle[MIX_STEP_MAX];
+static uint16_t mixTime[MIX_STEP_MAX];   // w 0,1 s
+static uint8_t mixCount = 0;
+// Ustawiane przez ekran - gdy trwa nalewanie, nowy $MIX jest odrzucany.
+static volatile uint8_t pouringBusy = 0;
 // Zwiekszany przy kazdej zmianie nazwy - ekran po nim poznaje, ze trzeba odswiezyc.
 static volatile uint8_t bottleNamesVersion = 0;
 
@@ -160,6 +174,7 @@ static volatile uint32_t bottleNamesChangedTick = 0;
 typedef struct
 {
     char names[BOTTLE_COUNT][BOTTLE_NAME_MAX + 1];
+    uint16_t volume[BOTTLE_COUNT];
     uint32_t magic;
 } BottleNamesRecord;
 
@@ -859,6 +874,9 @@ void SetValveState(uint8_t valve_id, uint8_t state){
     port=GPIOI;
     pin=GPIO_PIN_3;
   }
+  else{
+    return;
+  }
 
   if(state==1){
     HAL_GPIO_WritePin(port,pin,GPIO_PIN_RESET);
@@ -1001,8 +1019,9 @@ static uint8_t IsValidBottleName(const char *name)
     return 1;
 }
 
-// Dopisuje do ble_reply linie "<prefix>n,Nazwa\n" dla butelki idx (0..3).
-static size_t AppendBottleLine(size_t n, const char *prefix, uint8_t idx)
+// Dopisuje do ble_reply linie "<prefix>n,Nazwa\n" dla butelki idx (0..3),
+// a z withVolume = 1 linie "<prefix>n,Nazwa,ml\n".
+static size_t AppendBottleLine(size_t n, const char *prefix, uint8_t idx, uint8_t withVolume)
 {
     size_t len = strlen(prefix);
     memcpy(&ble_reply[n], prefix, len);   n += len;
@@ -1010,16 +1029,107 @@ static size_t AppendBottleLine(size_t n, const char *prefix, uint8_t idx)
     ble_reply[n++] = ',';
     len = strlen(bottleName[idx]);
     memcpy(&ble_reply[n], bottleName[idx], len);   n += len;
+
+    if (withVolume)
+    {
+        char digits[5];
+        uint8_t count = 0;
+        uint16_t value = bottleVolume[idx];
+        do
+        {
+            digits[count++] = (char)('0' + value % 10);
+            value /= 10;
+        } while (value > 0);
+
+        ble_reply[n++] = ',';
+        while (count > 0)
+        {
+            ble_reply[n++] = digits[--count];
+        }
+    }
+
     ble_reply[n++] = '\n';
     ble_reply[n] = '\0';
     return n;
 }
 
+// "700" -> 700. Tylko cyfry, 1..4 znaki, max BOTTLE_VOLUME_MAX. Blad = -1.
+static int32_t ParseVolume(const char *text)
+{
+    size_t len = strlen(text);
+    if (len == 0 || len > 4)
+    {
+        return -1;
+    }
+    int32_t value = 0;
+    for (size_t i = 0; i < len; i++)
+    {
+        if (text[i] < '0' || text[i] > '9')
+        {
+            return -1;
+        }
+        value = value * 10 + (text[i] - '0');
+    }
+    return (value <= BOTTLE_VOLUME_MAX) ? value : -1;
+}
+
+// "1:50,2:70,3:20" -> kroki (butelka 1..4, czas 1..MIX_TIME_MAX w 0,1 s),
+// nalewane po kolei. Zwraca liczbe krokow, 0 = blad.
+static uint8_t ParseMix(const char *text, uint8_t *bottles, uint16_t *times)
+{
+    const char *p = text;
+    uint8_t count = 0;
+
+    while (1)
+    {
+        if (count >= MIX_STEP_MAX)
+        {
+            return 0;
+        }
+        if (p[0] < '1' || p[0] > ('0' + BOTTLE_COUNT) || p[1] != ':')
+        {
+            return 0;
+        }
+        bottles[count] = (uint8_t)(p[0] - '0');
+        p += 2;
+
+        uint16_t value = 0;
+        uint8_t digits = 0;
+        while (*p >= '0' && *p <= '9')
+        {
+            if (++digits > 3)
+            {
+                return 0;
+            }
+            value = (uint16_t)(value * 10 + (*p - '0'));
+            p++;
+        }
+        if (value == 0 || value > MIX_TIME_MAX)
+        {
+            return 0;
+        }
+        times[count++] = value;
+
+        if (*p == '\0')
+        {
+            return count;
+        }
+        if (*p != ',')
+        {
+            return 0;
+        }
+        p++;
+    }
+}
+
 // Wiadomosci od aplikacji (w ble_line jest tresc bez '$' i '\n'):
-//   "SET,n,Nazwa" -> "$OK,n,Nazwa\n"          - zapisz co jest w butelce n
-//   "GET"         -> "$B,1,..\n" .. "$B,4,..\n" "$END\n" - wszystkie butelki
-//   "GET,n"       -> "$B,n,Nazwa\n"           - jedna butelka
-// Bledy: "$ERR,ID|NAME|CMD|LEN\n".
+//   "SET,n,Nazwa,ml" -> "$OK,n,Nazwa,ml\n"    - co jest w butelce n i ile ml zostalo
+//   "SET,n,Nazwa"    -> "$OK,n,Nazwa,ml\n"    - sama nazwa, ilosc bez zmian
+//   "GET"            -> "$B,1,..\n" .. "$B,4,..\n" "$END\n" - wszystkie butelki
+//   "GET,n"          -> "$B,n,Nazwa\n"        - jedna butelka
+//   "MIX,b:t,b:t.."  -> "$OK,MIX\n"           - wlasny drink: butelka b przez t x 0,1 s,
+//                                               kroki po kolei, np. "MIX,1:50,2:70,3:20"
+// Bledy: "$ERR,ID|NAME|VOL|CMD|LEN|MIX|BUSY\n".
 static void BLE_HandleLine(void)
 {
     if (ble_line_overflow)
@@ -1033,7 +1143,7 @@ static void BLE_HandleLine(void)
         size_t n = 0;
         for (uint8_t i = 0; i < BOTTLE_COUNT; i++)
         {
-            n = AppendBottleLine(n, "$B,", i);
+            n = AppendBottleLine(n, "$B,", i, 0);
         }
         memcpy(&ble_reply[n], "$END\n", 6);
         BLE_Send(ble_reply);
@@ -1048,8 +1158,31 @@ static void BLE_HandleLine(void)
             BLE_Send("$ERR,ID\n");
             return;
         }
-        AppendBottleLine(0, "$B,", (uint8_t)(id - '1'));
+        AppendBottleLine(0, "$B,", (uint8_t)(id - '1'), 0);
         BLE_Send(ble_reply);
+        return;
+    }
+
+    if (strncmp(ble_line, "MIX,", 4) == 0)
+    {
+        if (pouringBusy || ble_command == 'M')
+        {
+            BLE_Send("$ERR,BUSY\n");
+            return;
+        }
+        uint8_t bottles[MIX_STEP_MAX];
+        uint16_t times[MIX_STEP_MAX];
+        uint8_t count = ParseMix(&ble_line[4], bottles, times);
+        if (count == 0)
+        {
+            BLE_Send("$ERR,MIX\n");
+            return;
+        }
+        memcpy(mixBottle, bottles, count);
+        memcpy(mixTime, times, count * sizeof(uint16_t));
+        mixCount = count;
+        ble_command = 'M';
+        BLE_Send("$OK,MIX\n");
         return;
     }
 
@@ -1067,7 +1200,22 @@ static void BLE_HandleLine(void)
         return;
     }
 
-    const char *name = (sep == ',') ? &ble_line[6] : "";
+    char *name = (sep == ',') ? &ble_line[6] : "";
+
+    // Opcjonalna ilosc po drugim przecinku: "Sok,500".
+    int32_t volume = -1;
+    char *comma = strchr(name, ',');
+    if (comma != NULL)
+    {
+        *comma = '\0';
+        volume = ParseVolume(comma + 1);
+        if (volume < 0)
+        {
+            BLE_Send("$ERR,VOL\n");
+            return;
+        }
+    }
+
     if (!IsValidBottleName(name))
     {
         BLE_Send("$ERR,NAME\n");
@@ -1076,11 +1224,15 @@ static void BLE_HandleLine(void)
 
     uint8_t idx = (uint8_t)(id - '1');
     strcpy(bottleName[idx], name);
+    if (volume >= 0)
+    {
+        bottleVolume[idx] = (uint16_t)volume;
+    }
     bottleNamesVersion++;
     bottleNamesChangedTick = HAL_GetTick();
     bottleNamesDirty = 1;
 
-    AppendBottleLine(0, "$OK,", idx);
+    AppendBottleLine(0, "$OK,", idx, 1);
     BLE_Send(ble_reply);
 }
 
@@ -1191,6 +1343,15 @@ const char *GetBottleName(uint8_t bottle_id)
     return bottleName[bottle_id - 1];
 }
 
+uint16_t GetBottleVolume(uint8_t bottle_id)
+{
+    if (bottle_id < 1 || bottle_id > BOTTLE_COUNT)
+    {
+        return 0;
+    }
+    return bottleVolume[bottle_id - 1];
+}
+
 uint8_t GetBottleNamesVersion(void)
 {
     return bottleNamesVersion;
@@ -1240,6 +1401,7 @@ static void BottleNames_Load(void)
         {
             memcpy(bottleName[i], last->names[i], BOTTLE_NAME_MAX);
             bottleName[i][BOTTLE_NAME_MAX] = '\0';
+            bottleVolume[i] = (last->volume[i] <= BOTTLE_VOLUME_MAX) ? last->volume[i] : 0;
         }
         bottleNamesVersion++;
     }
@@ -1272,6 +1434,7 @@ static void BottleNames_Save(void)
     uint32_t primask = __get_PRIMASK();
     __disable_irq();
     memcpy(rec.names, bottleName, sizeof(rec.names));
+    memcpy(rec.volume, bottleVolume, sizeof(rec.volume));
     bottleNamesDirty = 0;
     __set_PRIMASK(primask);
     rec.magic = NAMES_MAGIC;
@@ -1311,6 +1474,22 @@ uint8_t BLE_GetCommand(void)
     ble_command = 0;
     __set_PRIMASK(primask);
     return cmd;
+}
+
+uint8_t BLE_GetMix(uint8_t *bottles, uint16_t *times)
+{
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    uint8_t count = mixCount;
+    memcpy(bottles, mixBottle, count);
+    memcpy(times, mixTime, count * sizeof(uint16_t));
+    __set_PRIMASK(primask);
+    return count;
+}
+
+void SetPouringBusy(uint8_t busy)
+{
+    pouringBusy = busy;
 }
 
 /* USER CODE END 4 */

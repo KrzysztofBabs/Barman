@@ -31,7 +31,7 @@ const DrinkRecipe Screen2View::recipeList[3] = {
     }
 };
 
-Screen2View::Screen2View():currentState(IDLE), tickCounter(0), activeBottle(0), currentRecipeIdx(0), currentStepIdx(0), selectedRecipeIndex(0)
+Screen2View::Screen2View():currentState(IDLE), tickCounter(0), activeBottle(0), activeSteps(0), currentStepIdx(0), selectedRecipeIndex(0)
 {
 
 }
@@ -48,6 +48,7 @@ void Screen2View::setupScreen()
 void Screen2View::tearDownScreen()
 {
     Screen2ViewBase::tearDownScreen();
+    SetPouringBusy(0);
 }
 
 
@@ -89,9 +90,17 @@ void Screen2View::startSelectedRecipe()
 // Start przepisu wieloetapowego
 void Screen2View::startRecipe(uint8_t recipeIndex)
 {
-    if (currentState == IDLE)
+    if (recipeIndex < 3)
     {
-        currentRecipeIdx = recipeIndex;
+        startSteps(recipeList[recipeIndex].steps);
+    }
+}
+
+void Screen2View::startSteps(const RecipeStep* steps)
+{
+    if (currentState == IDLE && steps[0].bottleId != 0)
+    {
+        activeSteps = steps;
         currentStepIdx = 0;
         tickCounter = 0;
         currentState = POURING_RECIPE;
@@ -100,10 +109,36 @@ void Screen2View::startRecipe(uint8_t recipeIndex)
     }
 }
 
+// Wlasny drink z aplikacji - czasy przychodza w 0,1 s, tick ekranu to 1/60 s.
+void Screen2View::startCustomMix()
+{
+    // customSteps moze byc wlasnie nalewane - nie nadpisujemy go w trakcie.
+    if (currentState != IDLE)
+    {
+        return;
+    }
+
+    uint8_t bottles[4];
+    uint16_t times[4];
+    uint8_t count = BLE_GetMix(bottles, times);
+
+    for (uint8_t i = 0; i < count; i++)
+    {
+        customSteps[i].bottleId = bottles[i];
+        customSteps[i].duration = times[i] * 6;
+        customSteps[i].targetGram = 0;
+    }
+    customSteps[count].bottleId = 0;
+    customSteps[count].duration = 0;
+    customSteps[count].targetGram = 0;
+
+    startSteps(customSteps);
+}
+
 // Otwieranie zaworu dla bieżącego kroku
 void Screen2View::openCurrentStepValve()
 {
-    uint8_t bottle = recipeList[currentRecipeIdx].steps[currentStepIdx].bottleId;
+    uint8_t bottle = activeSteps[currentStepIdx].bottleId;
     if (bottle != 0)
     {
         SetValveState(bottle, 1); // 1 = Otwórz zawór (0V)
@@ -156,6 +191,10 @@ void Screen2View::handleBleCommand(uint8_t cmd)
     {
         startRecipe(cmd - 'A');
     }
+    else if (cmd == 'M')
+    {
+        startCustomMix();
+    }
     else if (cmd == 'S')
     {
         stopAll();
@@ -171,7 +210,7 @@ void Screen2View::stopAll()
     currentState = IDLE;
     activeBottle = 0;
     tickCounter = 0;
-    currentRecipeIdx = 0;
+    activeSteps = 0;
     currentStepIdx = 0;
 }
 
@@ -184,6 +223,9 @@ void Screen2View::updateBottleNames()
     Unicode::strncpy(BottleName1Buffer, GetBottleName(1), BOTTLENAME1_SIZE);
     BottleName1Buffer[BOTTLENAME1_SIZE - 1] = 0;
     BottleName1.invalidate();
+
+    Unicode::snprintf(Bottle1AmountBuffer, BOTTLE1AMOUNT_SIZE, "%d", (int)GetBottleVolume(1));
+    Bottle1Amount.invalidate();
 
     Unicode::strncpy(BottleName2Buffer, GetBottleName(2), BOTTLENAME2_SIZE);
     BottleName2Buffer[BOTTLENAME2_SIZE - 1] = 0;
@@ -225,7 +267,7 @@ void Screen2View::handleTickEvent(){
     else if(currentState==POURING_RECIPE){
         tickCounter++;
         // Tryb przepisu wieloetapowego:
-        RecipeStep currentStep = recipeList[currentRecipeIdx].steps[currentStepIdx];
+        RecipeStep currentStep = activeSteps[currentStepIdx];
 
         if (tickCounter >= currentStep.duration)
         {
@@ -237,16 +279,18 @@ void Screen2View::handleTickEvent(){
             tickCounter = 0;
 
             // 3. Sprawdź, czy to kolejny etap, czy koniec drinka
-            if (recipeList[currentRecipeIdx].steps[currentStepIdx].bottleId != 0)
+            if (activeSteps[currentStepIdx].bottleId != 0)
             {
                 openCurrentStepValve(); // Otwórz następną butelkę
             }
             else
             {
                 currentState = IDLE; // Koniec całego drinka
-                currentRecipeIdx = 0;
+                activeSteps = 0;
                 currentStepIdx = 0;
             }
         }
     }
+
+    SetPouringBusy(currentState != IDLE);
 }

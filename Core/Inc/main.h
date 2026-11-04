@@ -59,6 +59,13 @@ void SetValveState(uint8_t valve_id, uint8_t state);
 // Zwraca ostatnia komende odebrana z BLE i ja kasuje (0 = brak nowej komendy).
 uint8_t BLE_GetCommand(void);
 
+// Przepis z ostatniego "$MIX" (po komendzie 'M'): butelki 1..4 i czasy w 0,1 s.
+// Tablice musza miec MIX_STEP_MAX (4) miejsca. Zwraca liczbe krokow.
+uint8_t BLE_GetMix(uint8_t *bottles, uint16_t *times);
+
+// 1 = trwa nalewanie, wtedy "$MIX" dostaje "$ERR,BUSY".
+void SetPouringBusy(uint8_t busy);
+
 // Nazwa napoju w butelce 1..4 ustawiona z aplikacji ("$SET,n,Nazwa").
 const char *GetBottleName(uint8_t bottle_id);
 
