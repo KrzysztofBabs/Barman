@@ -13,6 +13,33 @@
       </Text>
     </TextGroup>
     <TextGroup Id="Unsorted">
+      <Text Id="__SingleUse_2THC" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">STOP</Translation>
+      </Text>
+      <Text Id="__SingleUse_BJOY" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">0.0s</Translation>
+      </Text>
+      <Text Id="__SingleUse_4L08" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_A9HK" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">Krok 1/1</Translation>
+      </Text>
+      <Text Id="__SingleUse_W10B" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_NT74" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">sok</Translation>
+      </Text>
+      <Text Id="__SingleUse_Q3PL" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+      </Text>
+      <Text Id="__SingleUse_FOSS" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">nalewam</Translation>
+      </Text>
+      <Text Id="__SingleUse_KI6B" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;</Translation>
+      </Text>
       <Text Id="__SingleUse_CZMD" Alignment="Center" TypographyId="Default">
         <Translation Language="GB">&lt;value&gt; ml</Translation>
       </Text>

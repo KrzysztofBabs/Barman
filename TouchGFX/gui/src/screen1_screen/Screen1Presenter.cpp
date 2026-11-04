@@ -9,7 +9,7 @@ Screen1Presenter::Screen1Presenter(Screen1View& v)
 
 void Screen1Presenter::activate()
 {
-
+    model->setActiveScreen(Model::SCREEN_1);
 }
 
 void Screen1Presenter::deactivate()

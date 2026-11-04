@@ -26,6 +26,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <string.h>
+#include "pour.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -71,7 +72,6 @@
 #define BOTTLE_VOLUME_MAX 9999 // ml
 
 // --- Wlasny drink z aplikacji ("$MIX,1:50,2:70\n") ---
-#define MIX_STEP_MAX      4    // maks. krokow w jednym drinku
 #define MIX_TIME_MAX      300  // maks. czas kroku w 0,1 s (30 s)
 
 // --- Zapis nazw butelek w wewnetrznym flashu ---
@@ -129,8 +129,6 @@ static FMC_SDRAM_CommandTypeDef Command;
 
 UART_HandleTypeDef huart6;
 uint8_t ble_rx_data = 0;
-// Komenda z BLE czekajaca na wykonanie przez ekran (0 = brak).
-static volatile uint8_t ble_command = 0;
 // 1 = poprzedni bajt byl '#', wiec ten bajt jest komenda.
 static uint8_t ble_prefix_seen = 0;
 
@@ -153,13 +151,6 @@ static char bottleName[BOTTLE_COUNT][BOTTLE_NAME_MAX + 1] = {
 };
 // Ile ml zostalo w butelce (ustawiane z aplikacji komenda $VOL).
 static uint16_t bottleVolume[BOTTLE_COUNT] = { 0, 0, 0, 0 };
-
-// Ostatni przyjety przepis $MIX - odbiera go ekran przez BLE_GetMix().
-static uint8_t mixBottle[MIX_STEP_MAX];
-static uint16_t mixTime[MIX_STEP_MAX];   // w 0,1 s
-static uint8_t mixCount = 0;
-// Ustawiane przez ekran - gdy trwa nalewanie, nowy $MIX jest odrzucany.
-static volatile uint8_t pouringBusy = 0;
 // Zwiekszany przy kazdej zmianie nazwy - ekran po nim poznaje, ze trzeba odswiezyc.
 static volatile uint8_t bottleNamesVersion = 0;
 
@@ -367,7 +358,7 @@ MX_USART6_UART_Init();
   videoTaskHandle = osThreadNew(videoTaskFunc, NULL, &videoTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
+  Pour_Init();
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -1082,7 +1073,7 @@ static uint8_t ParseMix(const char *text, uint8_t *bottles, uint16_t *times)
 
     while (1)
     {
-        if (count >= MIX_STEP_MAX)
+        if (count >= POUR_STEP_MAX)
         {
             return 0;
         }
@@ -1165,23 +1156,19 @@ static void BLE_HandleLine(void)
 
     if (strncmp(ble_line, "MIX,", 4) == 0)
     {
-        if (pouringBusy || ble_command == 'M')
-        {
-            BLE_Send("$ERR,BUSY\n");
-            return;
-        }
-        uint8_t bottles[MIX_STEP_MAX];
-        uint16_t times[MIX_STEP_MAX];
+        uint8_t bottles[POUR_STEP_MAX];
+        uint16_t times[POUR_STEP_MAX];
         uint8_t count = ParseMix(&ble_line[4], bottles, times);
         if (count == 0)
         {
             BLE_Send("$ERR,MIX\n");
             return;
         }
-        memcpy(mixBottle, bottles, count);
-        memcpy(mixTime, times, count * sizeof(uint16_t));
-        mixCount = count;
-        ble_command = 'M';
+        if (!Pour_StartMix(bottles, times, count))
+        {
+            BLE_Send("$ERR,BUSY\n");
+            return;
+        }
         BLE_Send("$OK,MIX\n");
         return;
     }
@@ -1244,8 +1231,8 @@ static void BLE_HandleLine(void)
 // Znaki bez '#' lub '$' przed nimi sa ignorowane - HM-10 sam wysyla np. "OK+CONN"
 // przy polaczeniu i "OK+LOST" przy rozlaczeniu, co bez prefiksu odpalalo zawory.
 // '#' przerywa zbieranie wiadomosci '$', zeby STOP dzialal zawsze.
-// Przerwanie tylko zapamietuje komende - wykonuje ja Screen2View, z tymi samymi
-// timerami co przy obsludze z ekranu.
+// Komendy ida prosto do modulu pour, wiec dzialaja na kazdym ekranie. Gdy cos
+// juz leci, nowy start jest ignorowany - dziala tylko STOP.
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == USART6)
@@ -1294,25 +1281,22 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
                 case '2':
                 case '3':
                 case '4':
+                    Pour_StartBottle((uint8_t)(c - '0'));
+                    break;
                 case 'A':
                 case 'B':
                 case 'C':
-                    ble_command = c;
+                    Pour_StartRecipe((uint8_t)(c - 'A'));
                     break;
                 case 'a':
                 case 'b':
                 case 'c':
-                    ble_command = c - 'a' + 'A';
+                    Pour_StartRecipe((uint8_t)(c - 'a'));
                     break;
                 case '0':
                 case 's':
                 case 'S':
-                    // STOP zamyka zawory od razu, nawet gdy otwarty jest inny ekran.
-                    SetValveState(1, 0);
-                    SetValveState(2, 0);
-                    SetValveState(3, 0);
-                    SetValveState(4, 0);
-                    ble_command = 'S';
+                    Pour_Stop();
                     break;
                 default:
                     break;
@@ -1466,32 +1450,6 @@ static void BottleNames_Save(void)
     namesNextSlot++;
 }
 
-uint8_t BLE_GetCommand(void)
-{
-    uint32_t primask = __get_PRIMASK();
-    __disable_irq();
-    uint8_t cmd = ble_command;
-    ble_command = 0;
-    __set_PRIMASK(primask);
-    return cmd;
-}
-
-uint8_t BLE_GetMix(uint8_t *bottles, uint16_t *times)
-{
-    uint32_t primask = __get_PRIMASK();
-    __disable_irq();
-    uint8_t count = mixCount;
-    memcpy(bottles, mixBottle, count);
-    memcpy(times, mixTime, count * sizeof(uint16_t));
-    __set_PRIMASK(primask);
-    return count;
-}
-
-void SetPouringBusy(uint8_t busy)
-{
-    pouringBusy = busy;
-}
-
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -1519,7 +1477,10 @@ void StartDefaultTask(void *argument)
     waga_gramy = (int32_t)((waga_surowa - hx711_offset) / HX711_SCALE);
 
     // Aplikacja wysyla zwykle kilka $SET pod rzad - zapisujemy raz, po chwili ciszy.
-    if (bottleNamesDirty && (HAL_GetTick() - bottleNamesChangedTick) >= NAMES_SAVE_DELAY_MS)
+    // Nie w trakcie nalewania: kasowanie sektora zatrzymuje procesor na 1-2 s,
+    // a otwarty zawor lalby wtedy dluzej.
+    if (bottleNamesDirty && !Pour_IsBusy() &&
+        (HAL_GetTick() - bottleNamesChangedTick) >= NAMES_SAVE_DELAY_MS)
     {
         BottleNames_Save();
     }

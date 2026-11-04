@@ -560,6 +560,136 @@
             }
           }
         ]
+      },
+      {
+        "Name": "PourScreen",
+        "Components": [
+          {
+            "Type": "Box",
+            "Name": "background",
+            "Width": 480,
+            "Height": 272,
+            "Color": {
+              "Red": 135,
+              "Green": 61,
+              "Blue": 61
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "textArea1",
+            "X": 20,
+            "Y": 15,
+            "Width": 440,
+            "Height": 50,
+            "TextId": "__SingleUse_KI6B",
+            "TextRotation": "0",
+            "Wildcard1": {
+              "TextId": "__SingleUse_FOSS",
+              "UseBuffer": true,
+              "BufferSize": 24
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "bottleText",
+            "X": 20,
+            "Y": 80,
+            "Width": 440,
+            "Height": 30,
+            "TextId": "__SingleUse_Q3PL",
+            "TextRotation": "0",
+            "Wildcard1": {
+              "TextId": "__SingleUse_NT74",
+              "UseBuffer": true,
+              "BufferSize": 40
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "stepText",
+            "X": 20,
+            "Y": 115,
+            "Width": 440,
+            "Height": 30,
+            "TextId": "__SingleUse_W10B",
+            "TextRotation": "0",
+            "Wildcard1": {
+              "TextId": "__SingleUse_A9HK",
+              "UseBuffer": true,
+              "BufferSize": 16
+            }
+          },
+          {
+            "Type": "BoxProgress",
+            "Name": "progressBar",
+            "X": 90,
+            "Y": 155,
+            "Width": 300,
+            "Height": 10,
+            "Color": {
+              "Green": 240,
+              "Blue": 255
+            },
+            "Direction": "Right",
+            "FileNameBackground": "__generated\\alternate_theme_images_widgets_boxprogress_normal_medium.png",
+            "IndicatorPositionWidth": 300,
+            "IndicatorPositionHeight": 10,
+            "ProgressRangeMax": 100,
+            "ProgressRangeSteps": 100
+          },
+          {
+            "Type": "TextArea",
+            "Name": "timeText",
+            "X": 20,
+            "Y": 183,
+            "Width": 440,
+            "Height": 28,
+            "TextId": "__SingleUse_4L08",
+            "TextRotation": "0",
+            "Wildcard1": {
+              "TextId": "__SingleUse_BJOY",
+              "UseBuffer": true,
+              "BufferSize": 16
+            }
+          },
+          {
+            "Type": "ButtonWithLabel",
+            "Name": "stopButton",
+            "X": 120,
+            "Y": 215,
+            "Width": 240,
+            "Height": 50,
+            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_rounded_pressed.png",
+            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_rounded_normal.png",
+            "TextId": "__SingleUse_2THC",
+            "ReleasedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "PressedColor": {
+              "Red": 255,
+              "Green": 255,
+              "Blue": 255
+            },
+            "TextRotation": "0",
+            "Preset": "alternate_theme\\presets\\button\\regular\\height_50\\medium_rounded_normal.json"
+          }
+        ],
+        "Interactions": [
+          {
+            "InteractionName": "Interaction1",
+            "Trigger": {
+              "Type": "TriggerClicked",
+              "TriggerComponent": "stopButton"
+            },
+            "Action": {
+              "Type": "ActionCustom",
+              "FunctionName": "stopPouring"
+            }
+          }
+        ]
       }
     ],
     "CustomContainerDefinitions": [
