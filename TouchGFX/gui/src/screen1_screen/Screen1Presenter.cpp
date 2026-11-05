@@ -16,14 +16,3 @@ void Screen1Presenter::deactivate()
 {
 
 }
-
-void Screen1Presenter::UpdateWeight(int32_t weight) { view.SetWeight(weight); }
-
-
-void Screen1Presenter::startPouring() {
-    model->setValve(true); 
-}
-
-void Screen1Presenter::stopPouring() {
-    model->setValve(false); 
-}

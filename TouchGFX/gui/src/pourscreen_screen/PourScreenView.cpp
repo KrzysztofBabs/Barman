@@ -61,6 +61,12 @@ void PourScreenView::handleTickEvent()
     }
 }
 
+void PourScreenView::setWeight(int32_t grams)
+{
+    Unicode::snprintf(weightBuffer, WEIGHT_SIZE, "%d", (int)grams);
+    weight.invalidate();
+}
+
 void PourScreenView::showPouring(const PourState& state)
 {
     switch (state.kind)

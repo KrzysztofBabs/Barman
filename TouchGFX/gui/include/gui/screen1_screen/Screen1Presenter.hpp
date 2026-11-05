@@ -25,12 +25,7 @@ public:
      */
     virtual void deactivate();
 
-    virtual void UpdateWeight(int32_t weight);
-
     virtual ~Screen1Presenter() {}
-
-    void startPouring();
-    void stopPouring();
 
 private:
     Screen1Presenter();

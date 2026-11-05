@@ -11,11 +11,6 @@ public:
     virtual ~Screen1View() {}
     virtual void setupScreen();
     virtual void tearDownScreen();
-
-    virtual void SetWeight(int32_t weight);
-    virtual void pourButtonClicked(); // Deklaracja funkcji przycisku
-    virtual void stopButtonClicked(); // Przycisk STOP - zamyka zawór
-    
 protected:
 };
 

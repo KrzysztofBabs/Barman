@@ -21,3 +21,8 @@ void PourScreenPresenter::pourScreenDone()
 {
     model->leavePourScreen();
 }
+
+void PourScreenPresenter::UpdateWeight(int32_t weight)
+{
+    view.setWeight(weight);
+}

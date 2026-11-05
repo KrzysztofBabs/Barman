@@ -30,6 +30,8 @@ public:
     // Widok skonczyl pokazywac "Gotowe!" - wracamy na poprzedni ekran.
     void pourScreenDone();
 
+    virtual void UpdateWeight(int32_t weight);
+
 private:
     PourScreenPresenter();
 

@@ -13,6 +13,12 @@
       </Text>
     </TextGroup>
     <TextGroup Id="Unsorted">
+      <Text Id="__SingleUse_75C9" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">Zeskanuj, aby pobrać aplikację</Translation>
+      </Text>
+      <Text Id="__SingleUse_6XIN" Alignment="Left" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt;    g</Translation>
+      </Text>
       <Text Id="__SingleUse_2THC" Alignment="Center" TypographyId="Default">
         <Translation Language="GB">STOP</Translation>
       </Text>
@@ -66,12 +72,6 @@
       </Text>
       <Text Id="__SingleUse_DZ4A" Alignment="Center" TypographyId="Default">
         <Translation Language="GB">menu</Translation>
-      </Text>
-      <Text Id="__SingleUse_AW0C" Alignment="Center" TypographyId="Default">
-        <Translation Language="GB">stop</Translation>
-      </Text>
-      <Text Id="__SingleUse_9TGF" Alignment="Center" TypographyId="Default">
-        <Translation Language="GB">nalej</Translation>
       </Text>
       <Text Id="__SingleUse_D1XX" Alignment="Left" TypographyId="Default">
         <Translation Language="GB">&lt;value&gt;    g</Translation>

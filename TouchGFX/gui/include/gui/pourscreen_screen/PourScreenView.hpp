@@ -16,6 +16,7 @@ public:
     virtual void tearDownScreen();
     virtual void handleTickEvent();
     virtual void stopPouring();
+    void setWeight(int32_t grams);
 protected:
     void showPouring(const PourState& state);
     void showFinished(bool stopped);
