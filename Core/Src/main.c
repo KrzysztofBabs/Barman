@@ -1118,6 +1118,7 @@ static uint8_t ParseMix(const char *text, uint8_t *bottles, uint16_t *times)
 //   "SET,n,Nazwa"    -> "$OK,n,Nazwa,ml\n"    - sama nazwa, ilosc bez zmian
 //   "GET"            -> "$B,1,..\n" .. "$B,4,..\n" "$END\n" - wszystkie butelki
 //   "GET,n"          -> "$B,n,Nazwa\n"        - jedna butelka
+//   "RST"            -> "$OK,RST\n"           - wszystkie butelki na "null" i 0 ml
 //   "MIX,b:t,b:t.."  -> "$OK,MIX\n"           - wlasny drink: butelka b przez t x 0,1 s,
 //                                               kroki po kolei, np. "MIX,1:50,2:70,3:20"
 // Bledy: "$ERR,ID|NAME|VOL|CMD|LEN|MIX|BUSY\n".
@@ -1151,6 +1152,21 @@ static void BLE_HandleLine(void)
         }
         AppendBottleLine(0, "$B,", (uint8_t)(id - '1'), 0);
         BLE_Send(ble_reply);
+        return;
+    }
+
+    if (strcmp(ble_line, "RST") == 0)
+    {
+        for (uint8_t i = 0; i < BOTTLE_COUNT; i++)
+        {
+            strcpy(bottleName[i], "null");
+            bottleVolume[i] = 0;
+        }
+        bottleNamesVersion++;
+        bottleNamesChangedTick = HAL_GetTick();
+        bottleNamesDirty = 1;
+
+        BLE_Send("$OK,RST\n");
         return;
     }
 
