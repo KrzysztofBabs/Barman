@@ -3,7 +3,6 @@
 
 #include <gui_generated/screen2_screen/Screen2ViewBase.hpp>
 #include <gui/screen2_screen/Screen2Presenter.hpp>
-#include <gui/containers/CustomContainer1.hpp>
 #include "pour.h"
 
 extern "C"{
@@ -29,15 +28,10 @@ public:
 
     virtual void handleTickEvent();
 
-    virtual void scrollWheel1UpdateItem(CustomContainer1& item, int16_t itemIndex);
-    virtual void startSelectedRecipe();
-
 protected:
 
-    int16_t selectedRecipeIndex;
     uint8_t lastBottleNamesVersion;
 
-    void setSelectedRecipe(int16_t itemIndex);
     void updateBottleNames();
 };
 

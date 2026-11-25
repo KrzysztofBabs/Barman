@@ -27,6 +27,7 @@
 #include <CortexMMCUInstrumentation.hpp>
 #include "FreeRTOS.h"
 #include "task.h"
+#include <string.h>
 
 using namespace touchgfx;
 CortexMMCUInstrumentation instrumentation;
@@ -35,6 +36,39 @@ namespace
 {
 LOCATION_PRAGMA_NOLOAD("TouchGFX_Framebuffer")
 uint32_t animationBuffer[(480 * 272 * 2 + 3) / 4] LOCATION_ATTRIBUTE_NOLOAD("TouchGFX_Framebuffer");
+
+// Obrocone o 180 stopni kopie obu framebufferow TouchGFX - te pokazuje LTDC.
+LOCATION_PRAGMA_NOLOAD("TouchGFX_Framebuffer")
+uint32_t rotatedFrameBuf[2][(480 * 272 * 2 + 3) / 4] LOCATION_ATTRIBUTE_NOLOAD("TouchGFX_Framebuffer");
+
+// Kopiuje obszar area z src do dst, obracajac o 180 stopni. Kopiuje po dwa
+// piksele (32 bity), dlatego krawedzie w poziomie sa wyrownane do parzystych x.
+void rotate180(const uint16_t* src, uint16_t* dst, Rect area)
+{
+    const int16_t width = HAL::DISPLAY_WIDTH;
+    const int16_t height = HAL::DISPLAY_HEIGHT;
+
+    area &= Rect(0, 0, width, height);
+    if (area.isEmpty())
+    {
+        return;
+    }
+
+    const int16_t x0 = area.x & ~1;
+    const int16_t x1 = (area.right() + 1) & ~1;
+    const int16_t pairs = (x1 - x0) / 2;
+
+    for (int16_t y = area.y; y < area.bottom(); y++)
+    {
+        const uint32_t* s = reinterpret_cast<const uint32_t*>(src + y * width + x0);
+        uint32_t* d = reinterpret_cast<uint32_t*>(dst + (height - 1 - y) * width + (width - x1));
+        for (int16_t i = 0; i < pairs; i++)
+        {
+            const uint32_t p = s[i];
+            d[pairs - 1 - i] = (p >> 16) | (p << 16);
+        }
+    }
+}
 }
 
 void TouchGFXHAL::initialize()
@@ -51,6 +85,39 @@ void TouchGFXHAL::initialize()
     instrumentation.init();
     setMCUInstrumentation(&instrumentation);
     enableMCULoadCalculation(true);
+
+    memset(rotatedFrameBuf, 0, sizeof(rotatedFrameBuf));
+    SCB_CleanDCache();
+
+    uint16_t* current = TouchGFXGeneratedHAL::getTFTFrameBuffer();
+    setTFTFrameBuffer(current == frameBuffer1 ? frameBuffer1 : frameBuffer0);
+}
+
+uint16_t* TouchGFXHAL::rotatedBufferFor(const uint16_t* frameBuffer) const
+{
+    return reinterpret_cast<uint16_t*>(frameBuffer == frameBuffer1 ? rotatedFrameBuf[1] : rotatedFrameBuf[0]);
+}
+
+void TouchGFXHAL::endFrame()
+{
+    if (!dirtyArea.isEmpty())
+    {
+        // DMA2D moze jeszcze konczyc rysowanie - czekamy, zanim zaczniemy kopiowac.
+        dma.flush();
+
+        Rect area = dirtyArea;
+        area.expandToFit(previousDirtyArea);
+
+        uint16_t* drawn = getClientFrameBuffer();
+        SCB_CleanInvalidateDCache();
+        rotate180(drawn, rotatedBufferFor(drawn), area);
+        SCB_CleanDCache();
+
+        previousDirtyArea = dirtyArea;
+        dirtyArea = Rect();
+    }
+
+    TouchGFXGeneratedHAL::endFrame();
 }
 
 /**
@@ -60,11 +127,11 @@ void TouchGFXHAL::initialize()
  */
 uint16_t* TouchGFXHAL::getTFTFrameBuffer() const
 {
-    // Calling parent implementation of getTFTFrameBuffer().
-    //
-    // To overwrite the generated implementation, omit call to parent function
-    // and implemented needed functionality here.
-
+    // LTDC pokazuje obrocona kopie, a TouchGFX musi dostac swoj wlasny bufor.
+    if (tftFrameBuffer)
+    {
+        return tftFrameBuffer;
+    }
     return TouchGFXGeneratedHAL::getTFTFrameBuffer();
 }
 
@@ -75,12 +142,8 @@ uint16_t* TouchGFXHAL::getTFTFrameBuffer() const
  */
 void TouchGFXHAL::setTFTFrameBuffer(uint16_t* address)
 {
-    // Calling parent implementation of setTFTFrameBuffer(uint16_t* address).
-    //
-    // To overwrite the generated implementation, omit call to parent function
-    // and implemented needed functionality here.
-
-    TouchGFXGeneratedHAL::setTFTFrameBuffer(address);
+    tftFrameBuffer = address;
+    TouchGFXGeneratedHAL::setTFTFrameBuffer(rotatedBufferFor(address));
 }
 
 /**
@@ -100,6 +163,7 @@ void TouchGFXHAL::flushFrameBuffer(const touchgfx::Rect& rect)
     // be called to notify the touchgfx framework that flush has been performed.
 
     TouchGFXGeneratedHAL::flushFrameBuffer(rect);
+    dirtyArea.expandToFit(rect);
 
     // If the framebuffer is placed in Write Through cached memory (e.g. SRAM) then we need
     // to flush the Dcache to make sure framebuffer is correct in RAM. That's done

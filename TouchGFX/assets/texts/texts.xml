@@ -13,6 +13,15 @@
       </Text>
     </TextGroup>
     <TextGroup Id="Unsorted">
+      <Text Id="__SingleUse_6CI8" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt; ml</Translation>
+      </Text>
+      <Text Id="__SingleUse_ZN4P" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt; ml</Translation>
+      </Text>
+      <Text Id="__SingleUse_ZKTX" Alignment="Center" TypographyId="Default">
+        <Translation Language="GB">&lt;value&gt; ml</Translation>
+      </Text>
       <Text Id="__SingleUse_75C9" Alignment="Left" TypographyId="Default">
         <Translation Language="GB">Zeskanuj, aby pobrać aplikację</Translation>
       </Text>
@@ -60,9 +69,6 @@
       </Text>
       <Text Id="__SingleUse_KOIB" Alignment="Center" TypographyId="Default">
         <Translation Language="GB">&lt;value&gt;</Translation>
-      </Text>
-      <Text Id="__SingleUse_MWZW" Alignment="Center" TypographyId="Default">
-        <Translation Language="GB">nalej</Translation>
       </Text>
       <Text Id="__SingleUse_U1ID" Alignment="Center" TypographyId="Default">
         <Translation Language="GB">&lt;value&gt;</Translation>

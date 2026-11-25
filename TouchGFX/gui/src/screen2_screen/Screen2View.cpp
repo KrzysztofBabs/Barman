@@ -1,6 +1,6 @@
 #include <gui/screen2_screen/Screen2View.hpp>
 
-Screen2View::Screen2View() : selectedRecipeIndex(0), lastBottleNamesVersion(0)
+Screen2View::Screen2View() : lastBottleNamesVersion(0)
 {
 
 }
@@ -14,45 +14,6 @@ void Screen2View::setupScreen()
 void Screen2View::tearDownScreen()
 {
     Screen2ViewBase::tearDownScreen();
-}
-
-
-
-void Screen2View::scrollWheel1UpdateItem(CustomContainer1& item, int16_t itemIndex)
-{
-    if (itemIndex >= 0 && itemIndex < POUR_RECIPE_COUNT)
-    {
-        item.setRecipeName(Pour_GetRecipeName((uint8_t)itemIndex));
-        item.setSelected(itemIndex == selectedRecipeIndex);
-    }
-}
-
-void Screen2View::setSelectedRecipe(int16_t itemIndex)
-{
-    if (itemIndex == selectedRecipeIndex)
-    {
-        return;
-    }
-
-    selectedRecipeIndex = itemIndex;
-
-    // itemChanged() wymusza ponowne wywolanie scrollWheel1UpdateItem() dla kazdego
-    // elementu, dzieki czemu kolory podswietlenia sa faktycznie przeliczane.
-    // Samo invalidate() tylko przerysowuje elementy w ich obecnym stanie.
-    for (int16_t i = 0; i < POUR_RECIPE_COUNT; i++)
-    {
-        scrollWheel1.itemChanged(i);
-    }
-}
-
-// Wywoływane po naciśnięciu przycisku "NALEJ" pod listą
-void Screen2View::startSelectedRecipe()
-{
-    int16_t selected = scrollWheel1.getSelectedItem();
-    if (selected >= 0)
-    {
-        Pour_StartRecipe((uint8_t)selected);
-    }
 }
 
 void Screen2View::selectDrink1(){
@@ -88,13 +49,22 @@ void Screen2View::updateBottleNames()
     BottleName2Buffer[BOTTLENAME2_SIZE - 1] = 0;
     BottleName2.invalidate();
 
+    Unicode::snprintf(Bottle2AmountBuffer, BOTTLE2AMOUNT_SIZE, "%d", (int)GetBottleVolume(2));
+    Bottle2Amount.invalidate();
+
     Unicode::strncpy(BottleName3Buffer, GetBottleName(3), BOTTLENAME3_SIZE);
     BottleName3Buffer[BOTTLENAME3_SIZE - 1] = 0;
     BottleName3.invalidate();
 
+    Unicode::snprintf(Bottle3AmountBuffer, BOTTLE3AMOUNT_SIZE, "%d", (int)GetBottleVolume(3));
+    Bottle3Amount.invalidate();
+
     Unicode::strncpy(BottleName4Buffer, GetBottleName(4), BOTTLENAME4_SIZE);
     BottleName4Buffer[BOTTLENAME4_SIZE - 1] = 0;
     BottleName4.invalidate();
+
+    Unicode::snprintf(Bottle4AmountBuffer, BOTTLE4AMOUNT_SIZE, "%d", (int)GetBottleVolume(4));
+    Bottle4Amount.invalidate();
 }
 
 void Screen2View::handleTickEvent(){
@@ -104,8 +74,4 @@ void Screen2View::handleTickEvent(){
     {
         updateBottleNames();
     }
-
-    // Callbacki AnimateToItem/ItemSelected scroll wheela nie sa podlaczone w Designerze,
-    // wiec odpytujemy aktualnie wybrany element i odswiezamy podswietlenie, gdy sie zmieni.
-    setSelectedRecipe(scrollWheel1.getSelectedItem());
 }

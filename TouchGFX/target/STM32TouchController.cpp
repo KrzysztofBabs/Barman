@@ -57,8 +57,9 @@ bool STM32TouchController::sampleTouch(int32_t& x, int32_t& y)
             /* Get each touch coordinates */
             uint16_t _x, _y;
             tsDriver->GetXY(TS_I2C_ADDRESS, &_y, &_x);
-            x = (int32_t)_x;
-            y = (int32_t)_y;
+            // Obraz jest obrocony o 180 stopni (TouchGFXHAL::endFrame), wiec dotyk tez.
+            x = (int32_t)touchgfx::HAL::DISPLAY_WIDTH - 1 - (int32_t)_x;
+            y = (int32_t)touchgfx::HAL::DISPLAY_HEIGHT - 1 - (int32_t)_y;
             return true;
         }
     }

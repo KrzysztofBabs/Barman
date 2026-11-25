@@ -330,44 +330,6 @@
             ]
           },
           {
-            "Type": "ScrollWheel",
-            "Name": "scrollWheel1",
-            "X": 300,
-            "Width": 180,
-            "Height": 150,
-            "SelectedItemOffset": 55,
-            "ItemTemplateName": "CustomContainer1",
-            "NumberofItems": 3,
-            "Easing": "Back",
-            "EasingOption": "Out",
-            "SwipeAcceleration": 1.0,
-            "DragAcceleration": 1.0,
-            "OverShootPercentage": 75
-          },
-          {
-            "Type": "ButtonWithLabel",
-            "Name": "buttonWithLabel1",
-            "X": 240,
-            "Y": 150,
-            "Width": 240,
-            "Height": 50,
-            "Pressed": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_rounded_pressed.png",
-            "Released": "__generated\\alternate_theme_images_widgets_button_regular_height_50_medium_rounded_normal.png",
-            "TextId": "__SingleUse_MWZW",
-            "ReleasedColor": {
-              "Red": 255,
-              "Green": 255,
-              "Blue": 255
-            },
-            "PressedColor": {
-              "Red": 255,
-              "Green": 255,
-              "Blue": 255
-            },
-            "TextRotation": "0",
-            "Preset": "alternate_theme\\presets\\button\\regular\\height_50\\medium_rounded_normal.json"
-          },
-          {
             "Type": "TextArea",
             "Name": "BottleName1",
             "Y": 56,
@@ -437,6 +399,48 @@
               "UseBuffer": true,
               "BufferSize": 6
             }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "Bottle4Amount",
+            "X": 200,
+            "Y": 208,
+            "Width": 89,
+            "Height": 31,
+            "TextId": "__SingleUse_6CI8",
+            "TextRotation": "0",
+            "Wildcard1": {
+              "UseBuffer": true,
+              "BufferSize": 6
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "Bottle2Amount",
+            "X": 200,
+            "Y": 108,
+            "Width": 89,
+            "Height": 31,
+            "TextId": "__SingleUse_ZKTX",
+            "TextRotation": "0",
+            "Wildcard1": {
+              "UseBuffer": true,
+              "BufferSize": 6
+            }
+          },
+          {
+            "Type": "TextArea",
+            "Name": "Bottle3Amount",
+            "X": 200,
+            "Y": 156,
+            "Width": 89,
+            "Height": 31,
+            "TextId": "__SingleUse_ZN4P",
+            "TextRotation": "0",
+            "Wildcard1": {
+              "UseBuffer": true,
+              "BufferSize": 6
+            }
           }
         ],
         "Interactions": [
@@ -499,8 +503,7 @@
           {
             "InteractionName": "nalewanieZListyDrinkow",
             "Trigger": {
-              "Type": "TriggerClicked",
-              "TriggerComponent": "buttonWithLabel1"
+              "Type": "TriggerClicked"
             },
             "Action": {
               "Type": "ActionCustom",

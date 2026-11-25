@@ -47,7 +47,8 @@ public:
      * @param width            Width of the display.
      * @param height           Height of the display.
      */
-    TouchGFXHAL(touchgfx::DMA_Interface& dma, touchgfx::LCD& display, touchgfx::TouchController& tc, uint16_t width, uint16_t height) : TouchGFXGeneratedHAL(dma, display, tc, width, height)
+    TouchGFXHAL(touchgfx::DMA_Interface& dma, touchgfx::LCD& display, touchgfx::TouchController& tc, uint16_t width, uint16_t height) : TouchGFXGeneratedHAL(dma, display, tc, width, height),
+        tftFrameBuffer(0)
     {
     }
 
@@ -156,6 +157,21 @@ protected:
      * @param [in,out] adr New frame buffer address.
      */
     virtual void setTFTFrameBuffer(uint16_t* adr);
+
+    // Po narysowaniu klatki kopiuje zmieniony obszar, obrocony o 180 stopni,
+    // do bufora, ktory faktycznie pokazuje LTDC.
+    virtual void endFrame();
+
+private:
+    uint16_t* rotatedBufferFor(const uint16_t* frameBuffer) const;
+
+    // Bufor, ktory TouchGFX uwaza za wyswietlany. LTDC pokazuje jego obrocona kopie.
+    uint16_t* tftFrameBuffer;
+    // Obszar narysowany w biezacej klatce i w poprzedniej narysowanej klatce.
+    // Poprzedni jest potrzebny, bo przy podwojnym buforowaniu TouchGFX
+    // dokopiowuje go do bufora, w ktorym rysuje.
+    touchgfx::Rect dirtyArea;
+    touchgfx::Rect previousDirtyArea;
 };
 
 /* USER CODE END TouchGFXHAL.hpp */
